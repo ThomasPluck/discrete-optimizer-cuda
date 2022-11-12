@@ -1,0 +1,35 @@
+
+{ 
+    "version": "0.2.0",
+        "configurations": [
+
+            {
+                "name": "debug_75",
+                "type": "cppdbg",
+                "request": "launch",
+                "miDebuggerPath": "/usr/local/cuda-11.7/bin/cuda-gdb",
+                "miDebuggerArgs": "--cd=${workspaceFolder} --nx",
+                "MIMode": "gdb",
+                "program": "${workspaceFolder}/build_75",
+                "setupCommands": [],
+                "launchCompleteCommand": "exec-run",
+                "externalConsole": true,
+                "cwd": "${workspaceFolder}"
+            },
+
+            {
+                "name": "debug_86",
+                "type": "cppdbg",
+                "request": "launch",
+                "miDebuggerPath": "/usr/local/cuda-11.7/bin/cuda-gdb",
+                "miDebuggerArgs": "--cd=${workspaceFolder} --nx",
+                "MIMode": "gdb",
+                "program": "${workspaceFolder}/build_86",
+                "setupCommands": [],
+                "launchCompleteCommand": "exec-run",
+                "externalConsole": true,
+                "cwd": "${workspaceFolder}"
+            }
+        ]
+    }
+     

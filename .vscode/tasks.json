@@ -1,0 +1,72 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_cc_75",
+            "type": "shell",
+            "command": "nvcc",
+            "args": [
+                "-std=c++17",
+                "-g",
+                "-O0",
+                "-w",
+                "-arch=sm_75",
+                "-maxrregcount=64",
+                "-rdc=true",
+                "-o",
+                "${workspaceFolder}/build_75",
+                
+                "-I${workspaceFolder}/include/",
+                "-I${workspaceFolder}/core/layer/",
+                "-I${workspaceFolder}/core/structs/",
+
+                "core/structs/structs.cu",
+                "core/layer/layer.cu",
+                "core/main.cu"
+            ],
+
+            "problemMatcher": [
+                "$nvcc"
+            ],
+
+            "group": {
+                "kind":"build",
+                "isDefault": true
+            },
+        },
+
+        {
+            "label": "build_cc_86",
+            "type": "shell",
+            "command": "nvcc",
+            "args": [
+                "-std=c++17",
+                "-g",
+                "-O0",
+                "-w",
+                "-arch=sm_86",
+                "-maxrregcount=64",
+                "-rdc=true",
+                "-o",
+                "${workspaceFolder}/build_86",
+
+                "-I${workspaceFolder}/include/",
+                "-I${workspaceFolder}/core/layer/",
+                "-I${workspaceFolder}/core/structs/",
+  
+                "core/structs/structs.cu",
+                "core/layer/layer.cu",
+                "core/main.cu"
+            ],
+
+            "problemMatcher": [
+                "$nvcc"
+            ],
+
+            "group": {
+                "kind":"build",
+                "isDefault": true
+            },
+        },
+    ]
+}

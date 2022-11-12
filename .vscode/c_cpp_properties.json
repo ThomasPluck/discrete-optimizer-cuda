@@ -1,0 +1,51 @@
+{
+    "env": {
+        "myDefaultIncludePath": [
+            "${workspaceFolder}/include/",
+            "${PATH}",
+            "${workspaceFolder}/core/layer/"
+        ],
+        "myCompilerPath": [
+            "/usr/bin/gcc"
+        ]
+    },
+    "configurations": [
+        {
+            "name": "sasquatch-linux",
+            "intelliSenseMode": "linux-gcc-x64",
+            "includePath": [
+                "${myDefaultIncludePath}"
+            ],
+            "defines": [
+                "VERBOSE",
+                "__CUDACC__"
+            ],
+            "forcedInclude": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "${myDefaultIncludePath}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            }
+        },
+
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "__CUDA_ARCH__=750"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
