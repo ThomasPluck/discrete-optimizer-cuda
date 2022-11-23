@@ -73,4 +73,3 @@ __device__ static uchar * rowXOR(uchar * LHS, uchar * RHS) {
 
     return out;
 }
-

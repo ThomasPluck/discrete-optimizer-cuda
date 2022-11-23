@@ -16,3 +16,6 @@
 *.vcxproj
 *.filters
 *.user
+/.data
+*_75
+*_86

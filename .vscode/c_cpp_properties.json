@@ -32,11 +32,11 @@
                 "databaseFilename": ""
             }
         },
-
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/examples"
             ],
             "defines": [
                 "__CUDA_ARCH__=750"

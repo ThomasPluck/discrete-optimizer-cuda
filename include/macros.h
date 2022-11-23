@@ -24,6 +24,14 @@
 #define GET_WARPID unsigned warpid; asm("mov.u32 %0, %%warpid;":"=r"(warpid)); 
 
 //model parameters
-#define WEIGHT_THRESHOLD 256
+#define WEIGHT_THRESHOLD 4
 #define BIAS_THRESHOLD 4
 #define DEFAULT_SEED 694201337
+
+//CPU host allocation
+#define SAFE_ALOC_HOST(X,Y) CUDA_SAFE_CALL(cudaMallocHost((void**)&(X),(Y)));
+
+//CPU host free
+#define SAFE_FREE_HOST(X) if ((X) != NULL) { \
+               CUDA_SAFE_CALL( cudaFreeHost((X))); \
+               (X) = NULL;}
