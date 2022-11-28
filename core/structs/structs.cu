@@ -82,9 +82,25 @@
         element_dims[1] = bit_height;
     }
 
+    // Gets 8-by-8 bit chunk from the larger bit matrix
+    __device__ Chunk Device_Matrix::get_chunk(uint eight_x, uint eight_y){
+
+        uint block_x = eight_x / block_width;
+        uint block_y = eight_y;
+        uint internal_x = eight_x % block_width;
+
+        uchar out_bytes[8];
+        #pragma unroll
+        for(int internal_y = 0; internal_y < block_height; internal_y++){
+            out_bytes[internal_y] = (*this)(block_x, block_y, internal_x, internal_y);
+        }
+
+        return Chunk(out_bytes);
+    }
+
     // Sets 8-by-8 bit chunk into the larger bit matrix
     __device__ void Device_Matrix::set_chunk(uint eight_x, uint eight_y, Chunk chunk){
-                uint block_x = eight_x / block_width;
+        uint block_x = eight_x / block_width;
         uint block_y = eight_y;
         uint internal_x = eight_x % block_width;
 
