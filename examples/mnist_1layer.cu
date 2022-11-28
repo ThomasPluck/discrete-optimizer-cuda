@@ -49,6 +49,7 @@ int main()
         Host_Matrix train_batch = ThresholdAndPack(batch_slice,data_threshold);
 
         layer1.input = train_batch;
+        layer1.input.upload();
 
         layer1.forward();
         layer1.back();
