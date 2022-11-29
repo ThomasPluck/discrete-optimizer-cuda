@@ -77,7 +77,7 @@ Host_Matrix ThresholdAndPack(vector<vector<uchar>> DataToPack, int Threshold) {
     
     // Pack into Li's format
     Host_Matrix matrix_output;
-    matrix_output.load(output,DataToPack.size(),DataToPack[0].size());
+    matrix_output.load(output,DataToPack[0].size(),DataToPack.size());
 
     return matrix_output;
 }

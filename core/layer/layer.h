@@ -16,8 +16,8 @@ struct Layer {
     Host_Matrix input;
     Host_Matrix output;
 
-    Host_Data<uchar> input_label;
-    Host_Data<uchar> output_label;
+    Host_Matrix input_label;
+    Host_Matrix output_label;
 
     // Blocks according to row-major/col-major nature of Matrix
     int input_blocks;

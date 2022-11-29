@@ -43,8 +43,8 @@
     //AND two chunks together
     __device__ Chunk ChunkAND(Chunk LHS, Chunk RHS){
         union{uchar data[8]; uin32 halves[2];} p0;
-        p0.halves[0] = *LHS.halves[0] ^ *RHS.halves[0];
-        p0.halves[1] = *LHS.halves[1] ^ *RHS.halves[1];
+        p0.halves[0] = *LHS.halves[0] & *RHS.halves[0];
+        p0.halves[1] = *LHS.halves[1] & *RHS.halves[1];
 
         return Chunk(p0.data);
     }
@@ -179,7 +179,7 @@
     void Host_Matrix::load(uchar* data, int bit_width_, int bit_height_){
  
         num_blocks_width() = STEP128(bit_width_);
-        num_blocks_width() = STEP128(bit_height_);
+        num_blocks_height() = STEP8(bit_height_);
         bit_width() = bit_width_;
         bit_height() = bit_height_;
 

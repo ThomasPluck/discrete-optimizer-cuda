@@ -10,8 +10,8 @@
         output = Host_Matrix(_output_size,_batch_size);
 
         std::cout << "initializing Host_Data..." << std::endl;
-        input_label = Host_Data<uchar>((_input_size * _batch_size)/8);
-        output_label = Host_Data<uchar>((_output_size * _batch_size)/8);
+        input_label = Host_Matrix(_input_size, _batch_size);
+        output_label = Host_Matrix(_output_size,_batch_size);
 
         input_blocks = STEP128(_input_size);
         output_blocks = STEP8(_output_size);
@@ -64,7 +64,7 @@
 
         #if __CUDACC__ < 900
 
-            Launch::allocate_shmem(input.num_blocks_height() * weights.num_blocks_height() * 64);
+            //Launch::allocate_shmem();
             Launch::calculate_occupancy(FcLayerFwd);
             Launch::print_params();
             FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block, Launch::shared_memory_size>>>(input, output, weights, 
@@ -149,11 +149,10 @@
 
         #else
 
-            // Launch::calculate_occupancy(FcLayerBkWeight);
-            // FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(input, weights, weight_counters,
-            //                                                                         fp_error, fn_error);
-            // SYNC_KERNEL("FcLayerBkWeight");
-
+            Launch::calculate_occupancy(FcLayerBkWeight);
+            FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(input, weights, weight_counters,
+                                                                                    fp_error, fn_error);
+            SYNC_KERNEL("FcLayerBkWeight");
 
         #endif
 
