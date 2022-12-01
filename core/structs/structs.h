@@ -274,23 +274,6 @@ struct Device_Matrix : public Device_Data<uchar>{
 
     }
 
-    // Access pointer using Li coordinates
-    __device__ inline const void * ptr(uint block_x, uint block_y, uint internal_x, uint internal_y ){
-        return (void *) data + (((block_y * num_blocks_width() + block_x ) * block_height + internal_y ) * block_width + internal_x);
-    }
-
-    // Access pointer using vectorized coordinates
-    __device__ inline const void * ptr(uint byte_x, uint byte_y){
-        return (void *) data + ((byte_x + block_width * byte_y) + (block_size*(byte_x/block_width)) + (block_size*num_blocks_width()*(byte_y/block_height)));
-    }
-
-    // Access a pointer representing a row via a single index
-    __device__ inline const void* ptr(uint row){
-
-        return ptr(0,row);
-
-    }
-
     /*!
     * ==== Understanding "8 Chunk" Coordinates ====
     *

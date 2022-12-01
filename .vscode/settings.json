@@ -61,6 +61,8 @@
         "unordered_set": "cpp",
         "utility": "cpp",
         "vector": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "atomic": "cpp",
+        "initializer_list": "cpp"
     },
 }

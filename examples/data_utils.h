@@ -41,7 +41,7 @@ void ReadMNIST(string ImagePath, int NumberOfImages, int DataOfAnImage, vector<v
                 {
                     unsigned char temp=0;
                     file.read((char*)&temp,sizeof(temp));
-                    arr[i][(n_rows*r)+c]= temp;
+                    arr[i][(n_rows*r)+c] = temp;
                 }
             }
         }
@@ -60,19 +60,20 @@ Host_Matrix ThresholdAndPack(vector<vector<uchar>> DataToPack, int Threshold) {
     
     uchar output[DataToPack.size(),DataToPack[0].size()/8+1];
 
-    char bits = 0;
-    int count = 0;
+    uint8_t bits = 0;
+
     // Binarize the matrix
     for (int i = 0; i < DataToPack.size(); i++) {
     for (int j = 0, k = 0; j < DataToPack[0].size(); j++, k++) {
 
+        k %= 8;
+
         if (k == 0 && (j != 0 || i != 0)) {
-            output[i*DataToPack.size()+(j/8)-1] = bits;
+            output[i*DataToPack.size()+(j/8)-1] = (uchar) bits;
             bits = 0;
         }
 
         bits += (DataToPack[i][j] > Threshold ? (char) 128 : (char) 0) >> k;
-        k %= 8;
     }}
     
     // Pack into Li's format

@@ -1,9 +1,5 @@
-
 #include"structs.h"
 #include"util.cuh"
-
-
-
 
 #pragma region Chunk
 
@@ -149,6 +145,7 @@
         bit_dims[1] = bit_height;
         element_dims[0] = bit_width / CHAR_BIT;
         element_dims[1] = bit_height;
+        bytesize = PAD128(bit_width) * PAD8(bit_height);
     }
 
     Host_Matrix::~Host_Matrix(){}

@@ -45,8 +45,8 @@ __global__ static void FcLayerFwd(Device_Matrix input, Device_Matrix output, Dev
         
         // Loop over block rows/columns
         for (int i=0; i < input_blocks; i++){
-            load_matrix_sync(A_frag, input.ptr(by,i,0,0), 128);
-            load_matrix_sync(B_frag, weights.ptr(bx,i,0,0), 128);
+            load_matrix_sync(A_frag, &input(i,by,0,0), 128);
+            load_matrix_sync(B_frag, &weights(i,bx,0,0), 128);
             bmma_sync(C_frag, A_frag, B_frag, C_frag);
         }
         
