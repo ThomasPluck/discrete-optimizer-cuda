@@ -64,7 +64,7 @@
 
         #if __CUDACC__ < 900
 
-            //Launch::allocate_shmem();
+            //Launch::allocate_shmem(10000);
             Launch::calculate_occupancy(FcLayerFwd);
             Launch::print_params();
             FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block, Launch::shared_memory_size>>>(input, output, weights, 

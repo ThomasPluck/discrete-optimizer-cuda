@@ -40,13 +40,13 @@ __global__ static void FcLayerFwd(Device_Matrix input, Device_Matrix output, Dev
         fill_fragment(C_frag, 0);
 
         // Compute block coordinates
-        const int by = gwid % output_blocks; // which block column
-        const int bx = gwid / output_blocks; // which block row
+        const int bx = gwid % output_blocks; // which block column
+        const int by = gwid / output_blocks; // which block row
         
         // Loop over block rows/columns
         for (int i=0; i < input_blocks; i++){
-            load_matrix_sync(A_frag, &input(by,i,0,0), 128);
-            load_matrix_sync(B_frag, &weights(bx,i,0,0), 128);
+            load_matrix_sync(A_frag, input.ptr(by,i,0,0), 128);
+            load_matrix_sync(B_frag, weights.ptr(bx,i,0,0), 128);
             bmma_sync(C_frag, A_frag, B_frag, C_frag);
         }
         
