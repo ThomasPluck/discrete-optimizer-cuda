@@ -24,8 +24,7 @@ int main()
     const unsigned data_threshold = 50;
 
     // =============== Get Input and Label =================
-    vector<vector<uchar>> ar;
-    ReadMNIST(".data/mnist/train-images.idx3-ubyte",data_length,image_width*image_height,ar);
+    uchar ** ar = ReadMNIST(".data/mnist/train-images.idx3-ubyte");
 
     // ================= Set Network =================
 
@@ -38,13 +37,23 @@ int main()
     layer1.weight_counters.fill();
     layer1.bias_counters.fill();
 
+    uchar ** batch_slice;
+    batch_slice = new uchar*[batch];
+    for (int i = 0; i < image_height * image_width; i++) {
+        batch_slice[i] = new uchar[image_height * image_width];
+    }
+
     // ================= Train Network =================
 
     std::cout << "Training Network..." << std::endl;
     for(int i = 0; i < data_length/batch; i++){
 
-        vector<vector<uchar>> batch_slice (batch);
-        copy(ar.begin()+batch*i,ar.begin()+batch*(i+1),batch_slice.begin());
+        // Get batched data into 2D array
+        for(int j = 0; j < batch*image_height*image_width; j++) {
+            int row = j % (image_height*image_width);
+            int col = j / (image_height*image_width);
+            batch_slice[row][col] = ar[row+i*batch][col];
+        }
 
         Host_Matrix train_batch = ThresholdAndPack(batch_slice,data_threshold);
 

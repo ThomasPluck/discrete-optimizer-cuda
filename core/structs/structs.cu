@@ -173,6 +173,7 @@
         element_dims[1] = input.element_dims[1];
     }
 
+    // Load Host_Matrix with row-major bit data in a single uchar array
     void Host_Matrix::load(uchar* data, int bit_width_, int bit_height_){
  
         num_blocks_width() = STEP128(bit_width_);

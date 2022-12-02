@@ -5,34 +5,42 @@
 
 using namespace std;
 
-int ReverseInt (int i)
+int reverseInt (int i) 
 {
-    unsigned char ch1, ch2, ch3, ch4;
-    ch1=i&255;
-    ch2=(i>>8)&255;
-    ch3=(i>>16)&255;
-    ch4=(i>>24)&255;
-    return((int)ch1<<24)+((int)ch2<<16)+((int)ch3<<8)+ch4;
+    unsigned char c1, c2, c3, c4;
+
+    c1 = i & 255;
+    c2 = (i >> 8) & 255;
+    c3 = (i >> 16) & 255;
+    c4 = (i >> 24) & 255;
+
+    return ((int)c1 << 24) + ((int)c2 << 16) + ((int)c3 << 8) + c4;
 }
 
-void ReadMNIST(string ImagePath, int NumberOfImages, int DataOfAnImage, vector<vector<unsigned char>> &arr)
+uchar** ReadMNIST(string path)
 {
-    arr.resize(NumberOfImages, vector<unsigned char>(DataOfAnImage));
-    ifstream file (ImagePath,ios::binary);
+    ifstream file (path,std::ios::binary);
     if (file.is_open())
     {
         int magic_number=0;
         int number_of_images=0;
         int n_rows=0;
         int n_cols=0;
-        file.read((char*)&magic_number,sizeof(magic_number));
-        magic_number= ReverseInt(magic_number);
+        file.read((char*)&magic_number,sizeof(magic_number)); 
+        magic_number= reverseInt(magic_number);
         file.read((char*)&number_of_images,sizeof(number_of_images));
-        number_of_images= ReverseInt(number_of_images);
+        number_of_images= reverseInt(number_of_images);
         file.read((char*)&n_rows,sizeof(n_rows));
-        n_rows= ReverseInt(n_rows);
+        n_rows= reverseInt(n_rows);
         file.read((char*)&n_cols,sizeof(n_cols));
-        n_cols= ReverseInt(n_cols);
+        n_cols= reverseInt(n_cols);
+
+        uchar ** output;
+        output = new uchar*[number_of_images];
+        for (int i = 0; i < n_rows * n_cols; i++) {
+            output[i] = new uchar[n_rows * n_cols];
+        }
+
         for(int i=0;i<number_of_images;++i)
         {
             for(int r=0;r<n_rows;++r)
@@ -41,10 +49,12 @@ void ReadMNIST(string ImagePath, int NumberOfImages, int DataOfAnImage, vector<v
                 {
                     unsigned char temp=0;
                     file.read((char*)&temp,sizeof(temp));
-                    arr[i][(n_rows*r)+c] = temp;
+                    output[i][r*n_cols + c] = temp;
                 }
             }
         }
+
+        return output;
     }
 }
 
@@ -56,29 +66,40 @@ uchar Bools2Char(bool bits[8]) {
     return c;
 }
 
-Host_Matrix ThresholdAndPack(vector<vector<uchar>> DataToPack, int Threshold) {
+Host_Matrix ThresholdAndPack(uchar ** DataToPack, int Threshold) {
     
-    uchar output[DataToPack.size(),DataToPack[0].size()/8+1];
+    uchar output[PAD8(sizeof(DataToPack))*PAD128(sizeof(DataToPack[0]))];
 
     uint8_t bits = 0;
 
-    // Binarize the matrix
-    for (int i = 0; i < DataToPack.size(); i++) {
-    for (int j = 0, k = 0; j < DataToPack[0].size(); j++, k++) {
+    // Binarize the matrix in row major format
+    for (int i = 0; i < PAD8(sizeof(DataToPack)); i++) {
+    for (int j = 0, k = 0; j < PAD128(sizeof(DataToPack[0])); j++, k++) {
 
         k %= 8;
 
         if (k == 0 && (j != 0 || i != 0)) {
-            output[i*DataToPack.size()+(j/8)-1] = (uchar) bits;
+            output[i*PAD128(sizeof(DataToPack[0]))+(j/8)] = (uchar) bits;
             bits = 0;
         }
 
-        bits += (DataToPack[i][j] > Threshold ? (char) 128 : (char) 0) >> k;
+        try{
+            bits += (DataToPack[i][j] > Threshold ? (char) 128 : (char) 0) >> k;
+        } catch (...) {
+            continue;
+        }
+    }}
+
+    // Flatten output for Host_Matrix Packing
+    uchar flattened[sizeof(DataToPack)*sizeof(DataToPack[0])];
+    for (int i = 0; i < sizeof(DataToPack); i++) {
+    for (int j = 0, k = 0; j < sizeof(DataToPack[0]); j++) {
+        flattened[i*sizeof(DataToPack[0]) + j] = output[i][j];
     }}
     
     // Pack into Li's format
     Host_Matrix matrix_output;
-    matrix_output.load(output,DataToPack[0].size(),DataToPack.size());
+    matrix_output.load(flattened,sizeof(DataToPack[0]),sizeof(DataToPack));
 
     return matrix_output;
 }
