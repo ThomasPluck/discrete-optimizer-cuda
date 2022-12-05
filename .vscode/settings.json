@@ -63,6 +63,8 @@
         "vector": "cpp",
         "ostream": "cpp",
         "atomic": "cpp",
-        "initializer_list": "cpp"
+        "initializer_list": "cpp",
+        "iostream": "cpp",
+        "iosfwd": "cpp"
     },
 }

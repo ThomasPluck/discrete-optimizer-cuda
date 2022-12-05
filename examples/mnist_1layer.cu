@@ -8,7 +8,9 @@
 
 #include "data_utils.h"
 
+
 using namespace std;
+
 
 
 
@@ -16,53 +18,74 @@ int main()
 {    
     int dev = 0;
     cudaSetDevice(dev);
-    const unsigned batch = 32;
-    const unsigned image_height = 28;
-    const unsigned image_width = 28;
-    const unsigned data_length = 60000;
+    
 
-    const unsigned data_threshold = 50;
-
-    // =============== Get Input and Label =================
-    uchar ** ar = ReadMNIST(".data/mnist/train-images.idx3-ubyte");
+    // =============== Get Data and Label =================
+    uchar * train_data = ReadMNISTImages(".data/mnist/train-images.idx3-ubyte");
+    uchar * train_labels = ReadMNISTLabels(".data/minst/train-labels.idx1-ubyte");
+    uchar * test_data = ReadMNISTImages(".data/mnist/t10k-images.idx3-ubyte");
+    uchar * test_labels = ReadMNISTLabels(".data/minst/t10k-labels.idx1-ubyte");
 
     // ================= Set Network =================
 
     CUDA_SAFE_CALL(cudaGetDeviceProperties(&Launch::deviceProp, 0));
 
-    FcLayer layer1 = FcLayer(image_height*image_width,10,batch);
+    FcLayer layer1 = FcLayer(MNIST_IMAGE_SIZE,10,BATCH);
 
+    // Initialize parameters
     layer1.weights.fill_random();
     layer1.biases.fill(128);
     layer1.weight_counters.fill();
     layer1.bias_counters.fill();
 
-    uchar ** batch_slice;
-    batch_slice = new uchar*[batch];
-    for (int i = 0; i < image_height * image_width; i++) {
-        batch_slice[i] = new uchar[image_height * image_width];
-    }
-
+    // Loading data caches
+    uchar batch_slice[BATCH*MNIST_IMAGE_SIZE];
+    uchar label_slice[BATCH*MNIST_NUM_CLASSES] = {0};
+    Host_Matrix train_batch;
+    Host_Matrix labels;
+    
     // ================= Train Network =================
 
     std::cout << "Training Network..." << std::endl;
-    for(int i = 0; i < data_length/batch; i++){
+    for(int i = 0; i < MNIST_DATA_LENGTH/BATCH; i++){
 
-        // Get batched data into 2D array
-        for(int j = 0; j < batch*image_height*image_width; j++) {
-            int row = j % (image_height*image_width);
-            int col = j / (image_height*image_width);
-            batch_slice[row][col] = ar[row+i*batch][col];
+        // Get batched data into single array
+        for(int j = 0; j < BATCH*MNIST_IMAGE_SIZE; j++) {
+
+            // Rows and columns across the MNIST matrix
+            int row = j / MNIST_IMAGE_SIZE;
+            int col = j % MNIST_IMAGE_SIZE;
+
+            // Load correct data for batch slice.
+            batch_slice[row*MNIST_IMAGE_SIZE+col] = train_data[(row+i*BATCH)*MNIST_IMAGE_SIZE+col];
+
+            // Specific loop for one-hot encoding.
+            if (j == 0) {
+                for (int k = 0; k < MNIST_NUM_CLASSES; k++) {
+                    if (k == train_labels[row+i*BATCH]) {
+                        label_slice[row*MNIST_NUM_CLASSES+k] = 1;
+                    }
+                }
+            }
         }
 
-        Host_Matrix train_batch = ThresholdAndPack(batch_slice,data_threshold);
+        // Pack data into layer structures
+        layer1.input = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD);
+        for (int j = 0; j < BATCH*MNIST_IMAGE_SIZE; j++) {
+            bool deal = layer1.input.host_data[j] == PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD).host_data[j];
+            uchar val = layer1.input.host_data[j];
+            printf("%s","hello world");
+        }
+        layer1.output_label = PackHostMatrix(label_slice,10,BATCH,0);
 
-        layer1.input = train_batch;
-        layer1.input.upload();
-
+        // Train network
         layer1.forward();
         layer1.back();
     }
+
+    // ================= Test Network =================
     
+    std::cout << "Testing Network..." << std::endl;
+
     return 0;
 }

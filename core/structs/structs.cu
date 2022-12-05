@@ -145,7 +145,6 @@
         bit_dims[1] = bit_height;
         element_dims[0] = bit_width / CHAR_BIT;
         element_dims[1] = bit_height;
-        bytesize = PAD128(bit_width) * PAD8(bit_height);
     }
 
     Host_Matrix::~Host_Matrix(){}
@@ -162,7 +161,7 @@
     }
 
     void Host_Matrix::operator=(const Host_Matrix& input){
-        Host_Data::operator=((Host_Data)input);
+        Host_Data::operator=(input);
         block_dims[0] = input.block_dims[0];
         block_dims[1] = input.block_dims[1];
 

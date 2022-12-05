@@ -338,6 +338,31 @@ struct Host_Matrix : public Host_Data<uchar>{
 
     operator Device_Matrix();
 
+    // Access bytes using Li coordinates
+    inline uchar& operator()(uint block_x, uint block_y, uint internal_x, uint internal_y ){
+        return host_data[((block_y * num_blocks_width() + block_x ) * block_height + internal_y ) * block_width + internal_x];
+    }
+
+    // Access bytes using vectorized coordinates
+    inline uchar& operator()(uint byte_x, uint byte_y){
+        return host_data[(byte_x + block_width * byte_y) + (block_size*(byte_x/block_width)) + (block_size*num_blocks_width()*(byte_y/block_height))];
+    }
+
+    // Access a byte array representing a row via a single index
+    inline uchar * operator()(uint row){
+
+        const int row_bytes = num_blocks_width()*block_width;
+
+        uchar * output = new uchar[row_bytes];
+
+        for (int i; i < row_bytes; i++) {
+            output[i] = (*this)(i,row);
+        }
+
+        return output;
+
+    }
+
 };
 
 

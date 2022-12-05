@@ -16,7 +16,7 @@
 #define PAD128(X) (STEP128(X)<<7)
 
 //get bytesize of matrix from bit dimensions
-#define MATRIXSIZE(X,Y) (PAD128(X)/8*PAD8(Y))
+#define MATRIXSIZE(X,Y) ((PAD128(X)/8)*PAD8(Y))
 
 //get lane id
 #define GET_LANEID unsigned laneid; asm("mov.u32 %0, %%laneid;":"=r"(laneid)); 
