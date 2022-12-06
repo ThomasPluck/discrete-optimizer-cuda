@@ -73,7 +73,9 @@ int main()
         layer1.input = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD);
         for (int j = 0; j < BATCH*MNIST_IMAGE_SIZE; j++) {
             bool deal = layer1.input.host_data[j] == PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD).host_data[j];
-            uchar val = layer1.input.host_data[j];
+            uchar val1 = layer1.input.host_data[j];
+            uchar val2 = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD).host_data[j];
+            bool deal2 = val1 == val2;
             printf("%s","hello world");
         }
         layer1.output_label = PackHostMatrix(label_slice,10,BATCH,0);

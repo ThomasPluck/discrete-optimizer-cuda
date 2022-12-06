@@ -8,7 +8,7 @@
         #pragma unroll
         for (int i = 0; i < block_height; i++)
         {
-            data[i] = *(_data+i*block_width);
+            data[i] = *(_data+i);
         }
     }
 
