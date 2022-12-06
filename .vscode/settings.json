@@ -65,6 +65,9 @@
         "atomic": "cpp",
         "initializer_list": "cpp",
         "iostream": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "fstream": "cpp",
+        "istream": "cpp",
+        "streambuf": "cpp"
     },
 }

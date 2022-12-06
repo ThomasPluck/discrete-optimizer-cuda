@@ -37,6 +37,8 @@ int main()
     layer1.biases.fill(128);
     layer1.weight_counters.fill();
     layer1.bias_counters.fill();
+    layer1.input.fill();
+    layer1.output_label.fill();
 
     // Loading data caches
     uchar batch_slice[BATCH*MNIST_IMAGE_SIZE];
@@ -71,13 +73,6 @@ int main()
 
         // Pack data into layer structures
         layer1.input = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD);
-        for (int j = 0; j < BATCH*MNIST_IMAGE_SIZE; j++) {
-            bool deal = layer1.input.host_data[j] == PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD).host_data[j];
-            uchar val1 = layer1.input.host_data[j];
-            uchar val2 = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD).host_data[j];
-            bool deal2 = val1 == val2;
-            printf("%s","hello world");
-        }
         layer1.output_label = PackHostMatrix(label_slice,10,BATCH,0);
 
         // Train network

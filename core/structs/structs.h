@@ -100,7 +100,7 @@ struct Host_Data{
     }
 
     //fill memory with random values
-    void fill_random(int seed= DEFAULT_SEED){
+    void fill_random(int seed = DEFAULT_SEED){
         srand(seed);
         for(int i = 0 ; i < bytesize ; i++){
             host_data[i] = rand();

@@ -107,8 +107,8 @@ Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, in
 
         k %= 8;
         // If you've reached of the byte and you're within in bounds, commit it.
-        if (k == 0 && (j != 0 || i != 0)) {
-            output(i,j) = bits;
+        if (k == 0 && j != 0) {
+            output(i,j/8-1) = bits;
             bits = 0;
         }
 
@@ -120,6 +120,9 @@ Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, in
         }
 
     }}
+
+
+    output.upload();
 
     return output;
 }
