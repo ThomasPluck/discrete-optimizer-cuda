@@ -68,7 +68,7 @@ struct Host_Data{
     ~Host_Data(){
         if(initialized){
             delete host_data;
-            CUDA_SAFE_CALL(cudaFree(device_data));
+            cudaFree(device_data);
         }
     }
 
@@ -82,13 +82,13 @@ struct Host_Data{
 
     //copy assignment operator
     void operator= (const Host_Data<Type>& input){
-        if(initialized){
+        if (initialized) {
             delete host_data;
             cudaFree(device_data);
         }
 
         bytesize = input.bytesize;
-        allocate();
+        allocate();    
         load(input.host_data);
         initialized = true;
     }
@@ -96,7 +96,7 @@ struct Host_Data{
     //allocate memory
     void allocate(){
         host_data = new Type[bytesize];
-        cudaMalloc((void**)&device_data, bytesize);
+        cudaMalloc(&device_data, bytesize);
     }
 
     //fill memory with random values
@@ -127,7 +127,7 @@ struct Host_Data{
 
     //upload memory to device from host
     void upload(){
-        cudaMemcpy(device_data, host_data, bytesize, cudaMemcpyHostToDevice);
+        cudaError_t err = cudaMemcpy(device_data, host_data, bytesize, cudaMemcpyHostToDevice);
     }
 
     //download memory to host from device

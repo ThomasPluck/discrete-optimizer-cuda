@@ -49,7 +49,7 @@ struct FcLayer : public Layer {
 
     Host_Matrix weights;
 
-    Host_Data<uchar> biases;
+    Host_Data<uint16_t> biases;
     Host_Data<uchar> weight_counters;
     Host_Data<uchar> bias_counters;
 
@@ -67,7 +67,7 @@ struct CvLayer : public Layer {
 
     //TODO: Correctly implement data loading
     Host_Matrix filters;
-    Host_Data<uchar> biases;
+    Host_Data<uint16_t> biases;
     Host_Data<uchar> filter_counters;
     Host_Data<uchar> bias_counters;
 

@@ -11,7 +11,7 @@
 //--------fully-connected--------
 
 __global__ static void FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights, 
-                            Device_Data<uchar> biases, Device_Data<uchar> bias_counters, 
+                            Device_Data<uint16_t> biases, Device_Data<uchar> bias_counters, 
                                 Device_Data<uchar> weight_counters,
                                     int input_blocks, int output_blocks, int batch_blocks,
                                     int input_bits, int output_bits, int batch_bits)

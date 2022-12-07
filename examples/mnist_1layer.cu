@@ -35,13 +35,9 @@ int main()
     // Initialize parameters
     layer1.weights.fill_random();
     layer1.biases.fill(128);
-    layer1.weight_counters.fill();
-    layer1.bias_counters.fill();
-    layer1.input.fill();
-    layer1.output_label.fill();
 
     // Loading data caches
-    uchar batch_slice[BATCH*MNIST_IMAGE_SIZE];
+    uchar batch_slice[BATCH*MNIST_IMAGE_SIZE] = {0};
     uchar label_slice[BATCH*MNIST_NUM_CLASSES] = {0};
     Host_Matrix train_batch;
     Host_Matrix labels;
@@ -73,7 +69,7 @@ int main()
 
         // Pack data into layer structures
         layer1.input = PackHostMatrix(batch_slice,MNIST_IMAGE_SIZE,BATCH,MNIST_DATA_THRESHOLD);
-        layer1.output_label = PackHostMatrix(label_slice,10,BATCH,0);
+        layer1.output_label = PackHostMatrix(label_slice,MNIST_NUM_CLASSES,BATCH,0);
 
         // Train network
         layer1.forward();

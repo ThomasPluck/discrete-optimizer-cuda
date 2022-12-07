@@ -97,7 +97,6 @@ uchar * ReadMNISTLabels(string path)
 Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, int byte_threshold) {
 
     Host_Matrix output(bit_width,bit_height);
-    output.fill();
 
     uint8_t bits = 0;
 
@@ -108,7 +107,7 @@ Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, in
         k %= 8;
         // If you've reached of the byte and you're within in bounds, commit it.
         if (k == 0 && j != 0) {
-            output(i,j/8-1) = bits;
+            output(j%PAD128(bit_width),i) = bits;
             bits = 0;
         }
 
@@ -118,9 +117,8 @@ Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, in
         } else {
             continue;
         }
-
+        
     }}
-
 
     output.upload();
 
