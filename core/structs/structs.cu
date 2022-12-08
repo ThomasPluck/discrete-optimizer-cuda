@@ -6,7 +6,7 @@
     //constructor
     __device__ Chunk::Chunk(uchar* _data){
         #pragma unroll
-        for (int i = 0; i < block_height; i++)
+        for (int i = 0; i < BLOCK_HEIGHT; i++)
         {
             data[i] = *(_data+i);
         }
@@ -81,13 +81,13 @@
     // Gets 8-by-8 bit chunk from the larger bit matrix
     __device__ Chunk Device_Matrix::get_chunk(uint eight_x, uint eight_y){
 
-        uint block_x = eight_x / block_width;
+        uint block_x = eight_x / BLOCK_WIDTH;
         uint block_y = eight_y;
-        uint internal_x = eight_x % block_width;
+        uint internal_x = eight_x % BLOCK_WIDTH;
 
         uchar out_bytes[8];
         #pragma unroll
-        for(int internal_y = 0; internal_y < block_height; internal_y++){
+        for(int internal_y = 0; internal_y < BLOCK_HEIGHT; internal_y++){
             out_bytes[internal_y] = (*this)(block_x, block_y, internal_x, internal_y);
         }
 
@@ -96,29 +96,29 @@
 
     // Sets 8-by-8 bit chunk into the larger bit matrix
     __device__ void Device_Matrix::set_chunk(uint eight_x, uint eight_y, Chunk chunk){
-        uint block_x = eight_x / block_width;
+        uint block_x = eight_x / BLOCK_WIDTH;
         uint block_y = eight_y;
-        uint internal_x = eight_x % block_width;
+        uint internal_x = eight_x % BLOCK_WIDTH;
 
         #pragma unroll
-        for(int internal_y = 0; internal_y < block_height; internal_y++){
+        for(int internal_y = 0; internal_y < BLOCK_HEIGHT; internal_y++){
             (*this)(block_x, block_y, internal_x, internal_y) = chunk.data[internal_y];
         }
     }
 
     // Sets 8-by-8 chunk via two 32-bit half chunks
     __device__ void Device_Matrix::set_half_chunks(int eight_x, int eight_y, uchar* half_1, uchar* half_2){
-        uint block_x = eight_x / block_width;
+        uint block_x = eight_x / BLOCK_WIDTH;
         uint block_y = eight_y;
-        uint internal_x = eight_x % block_width;
+        uint internal_x = eight_x % BLOCK_WIDTH;
 
         #pragma unroll
-        for(int internal_y = 0; internal_y < chunk_height/2; internal_y++){
+        for(int internal_y = 0; internal_y < CHUNK_HEIGHT/2; internal_y++){
             (*this)(block_x, block_y, internal_x, internal_y) = half_1[internal_y];
         }
         
         #pragma unroll
-        for(int internal_y = 0; internal_y < chunk_height/2; internal_y++){
+        for(int internal_y = 0; internal_y < CHUNK_HEIGHT/2; internal_y++){
             (*this)(block_x, block_y, internal_x, internal_y+4) = half_2[internal_y];
         }
     }

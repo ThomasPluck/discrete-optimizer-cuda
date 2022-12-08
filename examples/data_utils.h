@@ -101,13 +101,15 @@ Host_Matrix PackHostMatrix(uchar * DataToPack, int bit_width, int bit_height, in
     uint8_t bits = 0;
 
     // Binarize the matrix in row major format
+    // Iterate first over rows and then over columns
     for (int i = 0; i < PAD8(bit_height); i++) {
     for (int j = 0, k = 0; j < PAD128(bit_width); j++, k++) {
 
         k %= 8;
         // If you've reached of the byte and you're within in bounds, commit it.
         if (k == 0 && j != 0) {
-            output(j%PAD128(bit_width),i) = bits;
+            int x_coord = (STEP8(j % PAD128(bit_width))) - 1;
+            output(x_coord,i) = bits;
             bits = 0;
         }
 

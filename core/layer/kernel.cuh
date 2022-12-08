@@ -215,8 +215,8 @@ __global__ static void FcLayerBkWeight(Device_Matrix input, Device_Matrix weight
                 gwid += gridDim.x * warpSize) {
 
         // Allocate each warp a 32-byte row slice
-        int bx = gwid % (block_width * fp_error.num_blocks_width() / warpSize);
-        int by = gwid / (block_width * fp_error.num_blocks_width() / warpSize);
+        int bx = gwid % (BLOCK_WIDTH * fp_error.num_blocks_width() / warpSize);
+        int by = gwid / (BLOCK_WIDTH * fp_error.num_blocks_width() / warpSize);
 
         // Retrieve a byte per thread
         uchar fp_error_byte = fp_error(bx+laneid,by);

@@ -6,26 +6,27 @@
 #include"macros.h"
 #include"launch.h"
 
+// define magic number macros
+
+
+// Blocks are 8-by-128 bit subarrays
+#define BLOCK_HEIGHT 8
+#define BLOCK_WIDTH 16
+#define BLOCK_SIZE 128
+
+// Chunks are 8-by-8 bit subarrays
+#define CHUNK_WIDTH 1
+#define CHUNK_HEIGHT 8
+#define CHUNK_SIZE 8
+
+// Half Chunks are 4-by-8 bit subarrays
+#define HALF_CHUNK_HEIGHT 4
 
 typedef unsigned int uint;
 typedef unsigned int uin32;
 typedef unsigned char uchar;
 typedef unsigned char uin8;
 
-// define magic number macros
-
-// Blocks are 8-by-128 bit subarrays
-const uint block_height = 8;
-const uint block_width = 16;
-const uint block_size = block_height * block_width;
-
-// Chunks are 8-by-8 bit subarrays
-const uint chunk_width = 1;
-const uint chunk_height = 8;
-const uint chunk_size = 8;
-
-// Half Chunks are 4-by-8 bit subarrays
-const uint half_chunk_height = 4;
 
 template<typename Type>
 struct Device_Data{
@@ -127,7 +128,7 @@ struct Host_Data{
 
     //upload memory to device from host
     void upload(){
-        cudaError_t err = cudaMemcpy(device_data, host_data, bytesize, cudaMemcpyHostToDevice);
+        cudaMemcpy(device_data, host_data, bytesize, cudaMemcpyHostToDevice);
     }
 
     //download memory to host from device
@@ -162,7 +163,7 @@ struct Chunk {
 
     uchar data[8] = {0};
     uin32* halves[2] = {(uin32*)&data[0],
-                        (uin32*)&data[half_chunk_height]};
+                        (uin32*)&data[HALF_CHUNK_HEIGHT]};
 
     //constructor
     __device__ Chunk(uchar* _data);
@@ -246,23 +247,29 @@ struct Device_Matrix : public Device_Data<uchar>{
     * To then derive the pointer to a byte in a matrix with W horizontal chunks (ie. chunk width) parameterized
     * by Li coordinates the following formula is used:
     * 
-    * p = 16*8*bx + W*16*8*by + ix + 16*iy (linear access) = ((by*W+bx)*block_height+iy)*block_width+ix (vectorized)
+    * p = 16*8*bx + W*16*8*by + ix + 16*iy (linear access) = ((by*W+bx)*BLOCK_HEIGHT+iy)*BLOCK_WIDTH+ix (vectorized)
     */
 
     // Access bytes using Li coordinates
     __device__ inline uchar& operator()(uint block_x, uint block_y, uint internal_x, uint internal_y ){
-        return data[((block_y * num_blocks_width() + block_x ) * block_height + internal_y ) * block_width + internal_x];
+        return data[((block_y * num_blocks_width() + block_x ) * BLOCK_HEIGHT + internal_y ) * BLOCK_WIDTH + internal_x];
     }
 
     // Access bytes using vectorized coordinates
     __device__ inline uchar& operator()(uint byte_x, uint byte_y){
-        return data[(byte_x + block_width * byte_y) + (block_size*(byte_x/block_width)) + (block_size*num_blocks_width()*(byte_y/block_height))];
+
+        uint block_x = byte_x/BLOCK_WIDTH;
+        uint block_y = byte_y/BLOCK_HEIGHT;
+        uint internal_x = byte_x%BLOCK_WIDTH;
+        uint internal_y = byte_y%BLOCK_HEIGHT;
+
+        return (*this)(block_x,block_y,internal_x,internal_y);
     }
 
     // Access a byte array representing a row via a single index
     __device__ inline uchar * operator()(uint row){
 
-        const int row_bytes = num_blocks_width()*block_width;
+        const int row_bytes = num_blocks_width()*BLOCK_WIDTH;
 
         uchar * output = new uchar[row_bytes];
 
@@ -340,18 +347,22 @@ struct Host_Matrix : public Host_Data<uchar>{
 
     // Access bytes using Li coordinates
     inline uchar& operator()(uint block_x, uint block_y, uint internal_x, uint internal_y ){
-        return host_data[((block_y * num_blocks_width() + block_x ) * block_height + internal_y ) * block_width + internal_x];
+        return host_data[((block_y * num_blocks_width() + block_x ) * BLOCK_HEIGHT + internal_y ) * BLOCK_WIDTH + internal_x];
     }
 
-    // Access bytes using vectorized coordinates
+        // Access bytes using vectorized coordinates
     inline uchar& operator()(uint byte_x, uint byte_y){
-        return host_data[(byte_x + block_width * byte_y) + (block_size*(byte_x/block_width)) + (block_size*num_blocks_width()*(byte_y/block_height))];
+        uint block_x = byte_x/BLOCK_WIDTH;
+        uint block_y = byte_y/BLOCK_HEIGHT;
+        uint internal_x = byte_x%BLOCK_WIDTH;
+        uint internal_y = byte_y%BLOCK_HEIGHT;
+        return (*this)(block_x,block_y,internal_x,internal_y);
     }
 
     // Access a byte array representing a row via a single index
     inline uchar * operator()(uint row){
 
-        const int row_bytes = num_blocks_width()*block_width;
+        const int row_bytes = num_blocks_width()*BLOCK_WIDTH;
 
         uchar * output = new uchar[row_bytes];
 
