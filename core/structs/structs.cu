@@ -162,8 +162,7 @@
 
     void Host_Matrix::operator=(const Host_Matrix& input){
         
-        host_data = input.host_data;
-        upload();
+        Host_Data::operator=((Host_Data) input);
 
         block_dims[0] = input.block_dims[0];
         block_dims[1] = input.block_dims[1];

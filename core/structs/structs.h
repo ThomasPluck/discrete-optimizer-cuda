@@ -264,6 +264,7 @@ struct Device_Matrix : public Device_Data<uchar>{
         uint internal_y = byte_y%BLOCK_HEIGHT;
 
         return (*this)(block_x,block_y,internal_x,internal_y);
+        
     }
 
     // Access a byte array representing a row via a single index
@@ -347,30 +348,53 @@ struct Host_Matrix : public Host_Data<uchar>{
 
     // Access bytes using Li coordinates
     inline uchar& operator()(uint block_x, uint block_y, uint internal_x, uint internal_y ){
-        return host_data[((block_y * num_blocks_width() + block_x ) * BLOCK_HEIGHT + internal_y ) * BLOCK_WIDTH + internal_x];
+        if (block_x >= num_blocks_width() || block_x < 0) {
+            throw std::overflow_error("block_x requested out of bounds");
+        } else if (block_y >= num_blocks_height() || block_y < 0) {
+            throw std::overflow_error("block_y requested out of bounds");
+        } else if (internal_x >= BLOCK_WIDTH || internal_x < 0) {
+            throw std::overflow_error("internal_x requested out of bounds");
+        } else if (internal_y >= BLOCK_HEIGHT || internal_y < 0) {
+            throw std::overflow_error("internal_y requested out of bounds");
+        } else {
+            return host_data[((block_y * num_blocks_width() + block_x ) * BLOCK_HEIGHT + internal_y ) * BLOCK_WIDTH + internal_x];
+        }
     }
 
         // Access bytes using vectorized coordinates
     inline uchar& operator()(uint byte_x, uint byte_y){
-        uint block_x = byte_x/BLOCK_WIDTH;
-        uint block_y = byte_y/BLOCK_HEIGHT;
-        uint internal_x = byte_x%BLOCK_WIDTH;
-        uint internal_y = byte_y%BLOCK_HEIGHT;
-        return (*this)(block_x,block_y,internal_x,internal_y);
+        if (byte_x >= num_blocks_width() * BLOCK_WIDTH || byte_x < 0) {
+            throw std::overflow_error("byte_x requested out of bounds");
+        } else if (byte_y >= num_blocks_height() * BLOCK_HEIGHT || byte_y < 0) {
+            throw std::overflow_error("byte_y requested out of bounds");
+        } else {
+            uint block_x = byte_x/BLOCK_WIDTH;
+            uint block_y = byte_y/BLOCK_HEIGHT;
+            uint internal_x = byte_x%BLOCK_WIDTH;
+            uint internal_y = byte_y%BLOCK_HEIGHT;
+
+            return (*this)(block_x,block_y,internal_x,internal_y);
+        }
     }
 
     // Access a byte array representing a row via a single index
     inline uchar * operator()(uint row){
 
-        const int row_bytes = num_blocks_width()*BLOCK_WIDTH;
+        if (row >= num_blocks_height() * BLOCK_HEIGHT || row < 0) {
+            std::overflow_error("row requested out of bounds");
+        } else {
 
-        uchar * output = new uchar[row_bytes];
+            const int row_bytes = num_blocks_width()*BLOCK_WIDTH;
 
-        for (int i; i < row_bytes; i++) {
-            output[i] = (*this)(i,row);
+            uchar * output = new uchar[row_bytes];
+
+            for (int i; i < row_bytes; i++) {
+                output[i] = (*this)(i,row);
+            }
+
+            return output;
+
         }
-
-        return output;
 
     }
 
