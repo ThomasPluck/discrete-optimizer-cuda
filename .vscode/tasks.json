@@ -18,6 +18,7 @@
                 "${workspaceFolder}/mnist_1layer_75",
                 
                 "-I${workspaceFolder}/include/",
+                "-I${workspaceFolder}/include/data/",
                 "-I${workspaceFolder}/core/layer/",
                 "-I${workspaceFolder}/core/structs/",
 

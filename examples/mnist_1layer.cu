@@ -7,12 +7,7 @@
 #include "layer.h"
 
 #include "data_utils.h"
-
-
-using namespace std;
-
-
-
+#include "mnist/mnist_reader.hpp"
 
 int main()
 {    
@@ -20,11 +15,9 @@ int main()
     cudaSetDevice(dev);
     
 
-    // =============== Get Data and Label =================
-    uchar * train_data = ReadMNISTImages(".data/mnist/train-images.idx3-ubyte");
-    uchar * train_labels = ReadMNISTLabels(".data/mnist/train-labels.idx1-ubyte");
-    uchar * test_data = ReadMNISTImages(".data/mnist/t10k-images.idx3-ubyte");
-    uchar * test_labels = ReadMNISTLabels(".data/mnist/t10k-labels.idx1-ubyte");
+    // =============== Get Data =================
+    mnist::MNIST_dataset<std::vector, std::vector<uint8_t>, uint8_t> dataset =
+        mnist::read_dataset<std::vector, std::vector, uint8_t, uint8_t>(".data/mnist");
 
     // ================= Set Network =================
 
@@ -55,12 +48,12 @@ int main()
             int col = j % MNIST_IMAGE_SIZE;
 
             // Load correct data for batch slice.
-            batch_slice[row*MNIST_IMAGE_SIZE+col] = train_data[(row+i*BATCH)*MNIST_IMAGE_SIZE+col];
+            batch_slice[row*MNIST_IMAGE_SIZE+col] = mnist.training_images[(row+i*BATCH)*MNIST_IMAGE_SIZE+col];
 
             // Specific loop for one-hot encoding.
             if (j == 0) {
                 for (int k = 0; k < MNIST_NUM_CLASSES; k++) {
-                    if (k == train_labels[row+i*BATCH]) {
+                    if (k == mnist.training_labels[row+i*BATCH]) {
                         label_slice[row*MNIST_NUM_CLASSES+k] = 1;
                     }
                 }

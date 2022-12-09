@@ -3,7 +3,9 @@
         "myDefaultIncludePath": [
             "${workspaceFolder}/include/",
             "${PATH}",
-            "${workspaceFolder}/core/layer/"
+            "${workspaceFolder}/core/layer/",
+            "${workspaceFolder/core/structs/",
+            "${workspaceFolder}/include/data/"
         ],
         "myCompilerPath": [
             "/usr/bin/gcc"
