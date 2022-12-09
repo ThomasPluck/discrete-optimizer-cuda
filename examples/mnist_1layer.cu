@@ -22,9 +22,9 @@ int main()
 
     // =============== Get Data and Label =================
     uchar * train_data = ReadMNISTImages(".data/mnist/train-images.idx3-ubyte");
-    uchar * train_labels = ReadMNISTLabels(".data/minst/train-labels.idx1-ubyte");
+    uchar * train_labels = ReadMNISTLabels(".data/mnist/train-labels.idx1-ubyte");
     uchar * test_data = ReadMNISTImages(".data/mnist/t10k-images.idx3-ubyte");
-    uchar * test_labels = ReadMNISTLabels(".data/minst/t10k-labels.idx1-ubyte");
+    uchar * test_labels = ReadMNISTLabels(".data/mnist/t10k-labels.idx1-ubyte");
 
     // ================= Set Network =================
 
