@@ -14,9 +14,10 @@ int main() {
   cudaSetDevice(dev);
 
   // =============== Get Data =================
+  std::cout << "Loading Data..." << std::endl;
   mnist::MNIST_dataset<std::vector, std::vector<uint8_t>, uint8_t> dataset =
       mnist::read_dataset<std::vector, std::vector, uint8_t, uint8_t>(
-          ".data/mnist");
+          "./.data/mnist");
 
   // ================= Set Network =================
 
@@ -37,9 +38,10 @@ int main() {
   // ================= Train Network =================
 
   std::cout << "Training Network..." << std::endl;
+  // Get batched data into single array
   for (int i = 0; i < MNIST_DATA_LENGTH / BATCH; i++) {
-    // Get batched data into single array
     for (int j = 0; j < BATCH * MNIST_IMAGE_SIZE; j++) {
+
       // Rows and columns across the MNIST matrix
       int row = j / MNIST_IMAGE_SIZE;
       int col = j % MNIST_IMAGE_SIZE;

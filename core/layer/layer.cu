@@ -4,12 +4,12 @@
 #pragma region Layer
 
 Layer::Layer(int _input_size, int _output_size, int _batch_size) {
-  std::cout << "running Layer constructor..." << std::endl;
-  std::cout << "initializing Host_Matrices..." << std::endl;
+  std::cout << "Running Layer constructor..." << std::endl;
+  std::cout << "Initializing Host_Matrices..." << std::endl;
   input = Host_Matrix(_input_size, _batch_size);
   output = Host_Matrix(_output_size, _batch_size);
 
-  std::cout << "initializing Host_Data..." << std::endl;
+  std::cout << "Initializing Host_Data..." << std::endl;
   input_label = Host_Matrix(_input_size, _batch_size);
   output_label = Host_Matrix(_output_size, _batch_size);
 
@@ -24,7 +24,7 @@ Layer::Layer(int _input_size, int _output_size, int _batch_size) {
 
 Layer::operator Param() { return Param(this); }
 
-Param::Param(Layer* input) {
+Param::Param(Layer *input) {
   input_blocks = input->input_blocks;
   output_blocks = input->output_blocks;
   batch_blocks = input->batch_blocks;
@@ -34,7 +34,7 @@ Param::Param(Layer* input) {
   batch_bits = input->batch_bits;
 }
 
-void link(Layer* prelink, Layer* postlink) {
+void link(Layer *prelink, Layer *postlink) {
   if (prelink->output_bits == postlink->input_bits) {
     postlink->input = prelink->output;
     prelink->output_label = postlink->input_label;
@@ -49,7 +49,7 @@ void link(Layer* prelink, Layer* postlink) {
 
 FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
     : Layer(_input_size, _output_size, _batch_size) {
-  std::cout << "running FcLayer constructor..." << std::endl;
+  std::cout << "Running FcLayer constructor..." << std::endl;
 
   weights = Host_Matrix(_input_size, _output_size);
 
