@@ -70,7 +70,8 @@ template <typename Type> struct Host_Data {
     initialized = true;
   }
 
-  // copy assignment operator
+  // ! NOTE: This copy operator only copies: so, to sync Host/Device Data you
+  // ! must explicitly call `upload()` or`download()`,
   void operator=(const Host_Data<Type> &input) {
     if (initialized) {
       delete host_data;
@@ -79,7 +80,17 @@ template <typename Type> struct Host_Data {
 
     bytesize = input.bytesize;
     allocate();
-    load(input.host_data);
+
+    // Load() without the upload
+    for (int i = 0; i < bytesize; i++) {
+      host_data[i] = input.host_data[i];
+    }
+
+    // Copy device data as well
+    cudaMemcpy(device_data, input.device_data, bytesize,
+               cudaMemcpyDeviceToDevice);
+    SYNC_KERNEL("Copying Data between Host Matrices");
+
     initialized = true;
   }
 
@@ -117,11 +128,13 @@ template <typename Type> struct Host_Data {
   // upload memory to device from host
   void upload() {
     cudaMemcpy(device_data, host_data, bytesize, cudaMemcpyHostToDevice);
+    SYNC_KERNEL("Uploading data to device");
   }
 
   // download memory to host from device
   void download() {
     cudaMemcpy(host_data, device_data, bytesize, cudaMemcpyDeviceToHost);
+    SYNC_KERNEL("Downloading data from device")
   }
 
   // indexed access of host data

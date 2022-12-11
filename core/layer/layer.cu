@@ -59,6 +59,7 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
 }
 
 void FcLayer::forward() {
+//! Only allow forward if XOR BMMA is not deprecated
 #if __CUDACC__ < 900
 
   // Launch::allocate_shmem(10000);
@@ -83,42 +84,38 @@ void FcLayer::back() {
   // get NOT output_labels
   // get NOT output
 
-  Host_Matrix not_out_label(output.bit_dims[0], output.bit_dims[1]);
-  not_out_label.load(output_label.host_data, output.bit_dims[0],
-                     output.bit_dims[1]);
-
-  Host_Matrix output_label_matrix(output.bit_dims[0], output.bit_dims[1]);
-  output_label_matrix.load(output_label.host_data, output.bit_dims[0],
-                           output.bit_dims[1]);
-
+  Host_Matrix not_out_label = output_label;
   Host_Matrix not_out = output;
 
   Launch::kernel_2d(output.element_dims[0], output.element_dims[1]);
 
   NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out_label);
   SYNC_KERNEL("NOT_out_label");
+  not_out_label.download();
 
   NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out);
   SYNC_KERNEL("NOT_output");
+  not_out.download();
 
   Host_Matrix fp_error = output;
+  fp_error.download();
   Host_Matrix fn_error = not_out;
+  fn_error.download();
 
   // fp_error replaces output (which it was set to right above) in the call in
   // order to conform to the LHS/RHS design
   AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error,
                                                          not_out_label);
   SYNC_KERNEL("find_fp_error");
+  fp_error.download();
 
   // see previous comment, but with fn_error and not_out
   AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error,
-                                                         output_label_matrix);
+                                                         output_label);
   SYNC_KERNEL("find_fn_error");
+  fn_error.download();
 
-// fp_error_kernel
-// fn_error_kernel
-// I think this wants to be __CUDACC__, since __CUDA_ARCH__ is only defined on
-// the device and this stuff is on host
+//! If card is post-Turing use AND BMMA Tensorcore Operations
 #if __CUDACC__ >= 800
 
   Host_Matrix input_T = input;

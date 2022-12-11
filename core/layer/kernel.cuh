@@ -6,7 +6,6 @@
 #include "standard_includes.h"
 #include "util.cuh"
 
-// TODO: double check all logic very closely
 //--------fully-connected--------
 
 __global__ static void
@@ -79,7 +78,7 @@ FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
   }
 }
 
-#if __CUDACC__ >= 800 // Window of CUDA architectures that support bmmaBitOpAnd
+#if __CUDACC__ >= 800 //! Window of CUDA architectures that support bmmaBitOpAnd
 
 __global__ static void
 FcLayerBkWeight(Device_Matrix weights, Device_Data<uchar> weight_counters,
@@ -199,11 +198,8 @@ __global__ static void FcLayerBkWeight(Device_Matrix input,
   GET_WARPID;
   GET_LANEID;
 
-  // shmem size is passed in through the kernel launch parameters, inside the
-  // kernel we just give the name and the compiler trusts that we will tell it
-  // the size at launch Which neuron caused the error to occur?
-  __shared__ int *error_cols;
   // Which sample did this error occur in?
+  __shared__ int *error_cols;
   __shared__ uint *error_rows;
 
   int MAX_ERRORS = (fp_error.bit_width() * fp_error.bit_height()) / warpSize;

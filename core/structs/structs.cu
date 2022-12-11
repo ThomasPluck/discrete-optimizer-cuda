@@ -73,7 +73,7 @@ Device_Matrix::Device_Matrix(int block_width, int block_height, int bit_width,
   block_dims[1] = block_height;
   bit_dims[0] = bit_width;
   bit_dims[1] = bit_height;
-  element_dims[0] = bit_width / CHAR_BIT;
+  element_dims[0] = bit_width / CHAR_BIT + 1;
   element_dims[1] = bit_height;
 }
 
@@ -144,7 +144,7 @@ Host_Matrix::Host_Matrix(int bit_width, int bit_height)
   block_dims[1] = STEP8(bit_height);
   bit_dims[0] = bit_width;
   bit_dims[1] = bit_height;
-  element_dims[0] = bit_width / CHAR_BIT;
+  element_dims[0] = bit_width / CHAR_BIT + 1;
   element_dims[1] = bit_height;
 }
 

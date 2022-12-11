@@ -23,13 +23,13 @@ int main() {
 
   CUDA_SAFE_CALL(cudaGetDeviceProperties(&Launch::deviceProp, 0));
 
-  FcLayer layer1 = FcLayer(MNIST_IMAGE_SIZE, 10, BATCH);
+  FcLayer layer1 = FcLayer(MNIST_IMAGE_SIZE, MNIST_NUM_CLASSES, BATCH);
 
   // Initialize parameters
   layer1.weights.fill_random();
-  layer1.biases.fill(128);
+  layer1.biases.fill(MNIST_IMAGE_SIZE/2);
 
-  // Loading data caches
+  // Loading raw uint8_t MNIST data in caches
   uchar batch_slice[BATCH * MNIST_IMAGE_SIZE] = {0};
   uchar label_slice[BATCH * MNIST_NUM_CLASSES] = {0};
   Host_Matrix train_batch;
@@ -51,7 +51,7 @@ int main() {
           dataset.training_images[row + i][col];
 
       // Specific loop for one-hot encoding.
-      if (j == 0) {
+      if (col == 0) {
         for (int k = 0; k < MNIST_NUM_CLASSES; k++) {
           if (k == dataset.training_labels[row + i]) {
             label_slice[row * MNIST_NUM_CLASSES + k] = 1;
