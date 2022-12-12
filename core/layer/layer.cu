@@ -91,29 +91,23 @@ void FcLayer::back() {
 
   NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out_label);
   SYNC_KERNEL("NOT_out_label");
-  not_out_label.download();
 
   NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out);
   SYNC_KERNEL("NOT_output");
-  not_out.download();
 
   Host_Matrix fp_error = output;
-  fp_error.download();
   Host_Matrix fn_error = not_out;
-  fn_error.download();
 
   // fp_error replaces output (which it was set to right above) in the call in
   // order to conform to the LHS/RHS design
   AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error,
                                                          not_out_label);
   SYNC_KERNEL("find_fp_error");
-  fp_error.download();
 
   // see previous comment, but with fn_error and not_out
   AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error,
                                                          output_label);
   SYNC_KERNEL("find_fn_error");
-  fn_error.download();
 
 //! If card is post-Turing use AND BMMA Tensorcore Operations
 #if __CUDACC__ >= 800
