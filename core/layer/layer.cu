@@ -67,9 +67,8 @@ void FcLayer::predict() {
   Launch::print_params();
   FcLayerPredict<<<Launch::num_blocks, Launch::threads_per_block,
                    Launch::shared_memory_size>>>(
-      input, output, weights, biases, weight_counters, bias_counters,
-      input_blocks, output_blocks, batch_blocks, input_bits, output_bits,
-      batch_bits);
+      input, output, weights, biases, input_blocks, output_blocks, batch_blocks,
+      input_bits, output_bits, batch_bits);
   SYNC_KERNEL("FcLayerPredict");
 
 #else
@@ -81,73 +80,13 @@ void FcLayer::predict() {
 }
 
 void FcLayer::train() {
-  // get NOT output_labels
-  // get NOT output
 
-  Host_Matrix not_out_label = output_label;
-  Host_Matrix not_out = output;
-
-  Launch::kernel_2d(output.element_dims[0], output.element_dims[1]);
-
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out_label);
-  SYNC_KERNEL("NOT_out_label");
-
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out);
-  SYNC_KERNEL("NOT_output");
-
-  Host_Matrix fp_error = output;
-  Host_Matrix fn_error = not_out;
-
-  // fp_error replaces output (which it was set to right above) in the call in
-  // order to conform to the LHS/RHS design
-  AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error,
-                                                         not_out_label);
-  SYNC_KERNEL("find_fp_error");
-
-  // see previous comment, but with fn_error and not_out
-  AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error,
-                                                         output_label);
-  SYNC_KERNEL("find_fn_error");
-
-//! If card is post-Turing use AND BMMA Tensorcore Operations
-#if __CUDACC__ >= 800
-
-  Host_Matrix input_T = input;
-  Host_Matrix fp_error_T = fp_error;
-  Host_Matrix fn_error_T = fn_error;
-
-  Launch::kernel_2d(input_T.dims[0], input_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(input_T);
-  SYNC_KERNEL("Transpose_input");
-
-  Launch::kernel_2d(fp_error_T.dims[0], fp_error_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error_T);
-  SYNC_KERNEL("Transpose_fp_error");
-
-  Launch::kernel_2d(fn_error_T.dims[0], fn_error_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error_T);
-  SYNC_KERNEL("Transpose_fn_error");
-
-  // NOT input transposed
-  Host_Matrix not_input_T = input_T;
-
-  Launch::kernel_2d(not_input_T.dims[0], not_input_T.dims[1]);
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_input_T);
-  SYNC_KERNEL("NOT_input_T");
-
-  Launch::calculate_occupancy(FcLayerTrainWeight);
-  FcLayerTrainWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
-      weights, weight_counters, fp_error_t, fn_error_t, input_t, not_input_t);
-  SYNC_KERNEL("FcLayerTrainWeight_CC80");
-
-#else
-
-  Launch::calculate_occupancy(FcLayerTrainWeight);
-  FcLayerTrainWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
-      input, weights, weight_counters, fp_error, fn_error);
-  SYNC_KERNEL("FcLayerTrainWeight");
-
-#endif
+  Launch::calculate_occupancy(FcLayerTrain);
+  FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(
+      input, output, weights, output_label, input_label, biases, bias_counters,
+      weight_counters, input_blocks, output_blocks, batch_blocks, input_bits,
+      output_bits, batch_bits);
+  SYNC_KERNEL("FcLayerTrain");
 }
 
 #pragma endregion
