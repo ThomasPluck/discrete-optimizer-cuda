@@ -58,19 +58,19 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
   bias_counters = _output_size;
 }
 
-void FcLayer::forward() {
-//! Only allow forward if XOR BMMA is not deprecated
+void FcLayer::predict() {
+//! Only allow predict if XOR BMMA is not deprecated
 #if __CUDACC__ < 900
 
   // Launch::allocate_shmem(10000);
-  Launch::calculate_occupancy(FcLayerFwd);
+  Launch::calculate_occupancy(FcLayerPredict);
   Launch::print_params();
-  FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block,
-               Launch::shared_memory_size>>>(
+  FcLayerPredict<<<Launch::num_blocks, Launch::threads_per_block,
+                   Launch::shared_memory_size>>>(
       input, output, weights, biases, weight_counters, bias_counters,
       input_blocks, output_blocks, batch_blocks, input_bits, output_bits,
       batch_bits);
-  SYNC_KERNEL("FcLayerFwd");
+  SYNC_KERNEL("FcLayerPredict");
 
 #else
 
@@ -80,7 +80,7 @@ void FcLayer::forward() {
 #endif
 }
 
-void FcLayer::back() {
+void FcLayer::train() {
   // get NOT output_labels
   // get NOT output
 
@@ -135,17 +135,17 @@ void FcLayer::back() {
   NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_input_T);
   SYNC_KERNEL("NOT_input_T");
 
-  Launch::calculate_occupancy(FcLayerBkWeight);
-  FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
+  Launch::calculate_occupancy(FcLayerTrainWeight);
+  FcLayerTrainWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
       weights, weight_counters, fp_error_t, fn_error_t, input_t, not_input_t);
-  SYNC_KERNEL("FcLayerBkWeight_CC80");
+  SYNC_KERNEL("FcLayerTrainWeight_CC80");
 
 #else
 
-  Launch::calculate_occupancy(FcLayerBkWeight);
-  FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
+  Launch::calculate_occupancy(FcLayerTrainWeight);
+  FcLayerTrainWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
       input, weights, weight_counters, fp_error, fn_error);
-  SYNC_KERNEL("FcLayerBkWeight");
+  SYNC_KERNEL("FcLayerTrainWeight");
 
 #endif
 }
@@ -161,15 +161,16 @@ void FcLayer::back() {
 
 // }
 
-// void CvLayer::forward(){
+// void CvLayer::predict(){
 //     //Launch::calculate_occupancy(CvLayerFwd);
-//     //FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
+//     //FcLayerPredict<<<Launch::num_blocks,
+//     Launch::threads_per_block>>>(this);
 //     //SYNC_KERNEL(CvLayerFwd);
 // }
 
-// void CvLayer::back(){
+// void CvLayer::train(){
 //     //Launch::calculate_occupancy(CvLayerBk);
-//     //FcLayerBk<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
+//     //FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
 //     //SYNC_KERNEL(CvLayerBk);
 // }
 

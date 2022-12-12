@@ -9,7 +9,7 @@
 //--------fully-connected--------
 
 __global__ static void
-FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
+FcLayerPredict(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
            Device_Data<uint16_t> biases, Device_Data<uchar> bias_counters,
            Device_Data<uchar> weight_counters, int input_blocks,
            int output_blocks, int batch_blocks, int input_bits, int output_bits,
@@ -81,7 +81,7 @@ FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
 #if __CUDACC__ >= 800 //! Window of CUDA architectures that support bmmaBitOpAnd
 
 __global__ static void
-FcLayerBkWeight(Device_Matrix weights, Device_Data<uchar> weight_counters,
+FcLayerTrainWeight(Device_Matrix weights, Device_Data<uchar> weight_counters,
                 Device_Matrix fp_error_t, Device_Matrix fn_error_t,
                 Device_Matrix input_t, Device_Matrix not_input_t) {
   GET_WARPID;
@@ -188,7 +188,7 @@ FcLayerBkWeight(Device_Matrix weights, Device_Data<uchar> weight_counters,
 #else
 
 // BMMA-free backpropagation
-__global__ static void FcLayerBkWeight(Device_Matrix input,
+__global__ static void FcLayerTrainWeight(Device_Matrix input,
                                        Device_Matrix weights,
                                        Device_Data<uchar> weight_counters,
                                        Device_Matrix fp_error,
@@ -267,7 +267,7 @@ __global__ static void FcLayerBkWeight(Device_Matrix input,
 
 #endif
 
-__global__ static void FcLayerBkBias(Device_Matrix fp_error_t,
+__global__ static void FcLayerTrainBias(Device_Matrix fp_error_t,
                                      Device_Matrix fn_error_t,
                                      Device_Data<uchar> bias_counters,
                                      Device_Data<uchar> biases) {

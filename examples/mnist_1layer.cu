@@ -27,7 +27,7 @@ int main() {
 
   // Initialize parameters
   layer1.weights.fill_random();
-  layer1.biases.fill(MNIST_IMAGE_SIZE/2);
+  layer1.biases.fill(MNIST_IMAGE_SIZE / 2);
 
   // Loading raw uint8_t MNIST data in caches
   uchar batch_slice[BATCH * MNIST_IMAGE_SIZE] = {0};
@@ -67,8 +67,8 @@ int main() {
         PackHostMatrix(label_slice, MNIST_NUM_CLASSES, BATCH, 0);
 
     // Train network
-    layer1.forward();
-    layer1.back();
+    layer1.predict();
+    layer1.train();
   }
 
   // ================= Test Network =================

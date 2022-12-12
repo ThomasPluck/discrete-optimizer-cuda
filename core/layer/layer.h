@@ -32,9 +32,9 @@ struct Layer {
 
   Layer(int _input_size, int _output_size, int _batch_size);
 
-  virtual void forward() {}
+  virtual void predict() {}
 
-  virtual void back() {}
+  virtual void train() {}
 
   operator Param();
 };
@@ -57,9 +57,9 @@ struct FcLayer : public Layer {
   // input_size, output_size, batch_size are taken
   FcLayer(int _input_size, int _output_size, int _batch_size);
 
-  void forward();
+  void predict();
 
-  void back();
+  void train();
 };
 
 struct CvLayer : public Layer {
@@ -85,9 +85,9 @@ struct CvLayer : public Layer {
 
   CvLayer(int _input_size, int _output_size, int _batch_size);
 
-  void forward();
+  void predict();
 
-  void back();
+  void train();
 };
 
 void link(Layer *prelink, Layer *postlink);
