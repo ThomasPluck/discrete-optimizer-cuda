@@ -51,11 +51,17 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
     : Layer(_input_size, _output_size, _batch_size) {
   std::cout << "Running FcLayer constructor..." << std::endl;
 
+  // Weights and biases
   weights = Host_Matrix(_input_size, _output_size);
-
   biases = _output_size;
+
+  // Weight and bias counters
   weight_counters = _output_size * _input_size;
   bias_counters = _output_size;
+
+  // Weight and bias threshold paramaters
+  weight_threshold = 4;
+  bias_threshold = 4;
 }
 
 void FcLayer::predict() {
@@ -85,7 +91,7 @@ void FcLayer::train() {
   FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(
       input, output, weights, output_label, input_label, biases, bias_counters,
       weight_counters, input_blocks, output_blocks, batch_blocks, input_bits,
-      output_bits, batch_bits);
+      output_bits, batch_bits, weight_threshold, bias_threshold);
   SYNC_KERNEL("FcLayerTrain");
 }
 

@@ -165,18 +165,28 @@ struct Chunk {
   // constructor
   __device__ Chunk(uchar *_data);
 
+  // half-chunk constructor
+  __device__ Chunk(uin32 _half_chunk_1, uin32 _half_chunk_2);
+
   // Henry Warren's Tranpose32 distilled to Transpose8
   __device__ void transpose();
 
-  // invert data
-  __device__ void NOT();
+  __device__ inline uchar &operator[](int idx) { return (*this).data[idx]; }
 };
+
+// NOT a chunk
+__device__ Chunk ChunkNOT(Chunk INPUT);
 
 // AND two chunks together
 __device__ Chunk ChunkAND(Chunk LHS, Chunk RHS);
 
 // Quick bit-hack to count bits in a byte
 __device__ uchar ByteCount(uchar n);
+
+// Quick bit-hack to expand 8 bits into 8 bytes
+__device__ Chunk Byte2Chunk(uchar n);
+
+__device__ uchar Chunk2Byte(Chunk chunk);
 
 // Counts number of ones in chunk
 __device__ void ChunkPOPC(Chunk chunk, uchar *out);
