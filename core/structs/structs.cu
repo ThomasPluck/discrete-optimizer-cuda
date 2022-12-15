@@ -11,6 +11,15 @@ __device__ Chunk::Chunk(uchar *_data) {
   }
 }
 
+// half-chunk constructor
+__device__ Chunk::Chunk(uin32 _half_chunk_1, uin32 _half_chunk_2){
+  #pragma unroll
+  int half_chunks[2] = {_half_chunk_1, _half_chunk_2};
+  for (int i = 0; i < BLOCK_HEIGHT; i++) {
+    data[i] = (half_chunks[i/4] >> (8 * (3-(i%4)))) & 0xff;
+  }
+}
+
 // Henry Warren's Tranpose32 distilled to Transpose8
 __device__ void Chunk::transpose() {
   int8_t j, k;
@@ -28,9 +37,10 @@ __device__ void Chunk::transpose() {
 }
 
 // invert data
-__device__ void Chunk::NOT() {
-  *halves[0] = ~*halves[0];
-  *halves[1] = ~*halves[1];
+__device__ Chunk ChunkNOT(Chunk INPUT) {
+  *INPUT.halves[0] = ~*INPUT.halves[0];
+  *INPUT.halves[1] = ~*INPUT.halves[1];
+  return INPUT;
 }
 
 // AND two chunks together
@@ -54,11 +64,29 @@ __device__ uchar BytePOPC(uchar n) {
   return n;
 }
 
+// Quick bit-hack to expand bits into bytes
+__device__ Chunk Byte2Chunk(uchar n) {
+  uchar bytes[8];
+  for(int i = 7; i > -1; i--) {
+    bytes[i] = n >> i & 0x01;
+  }
+  return Chunk(bytes);
+}
+
 // Counts number of ones in chunk
 __device__ void ChunkPOPC(Chunk chunk, uchar *out) {
   for (uchar i = 0; i < 8; i++) {
     out[i] = BytePOPC(chunk.data[i]);
   }
+}
+
+// Convert a Chunk to a byte by thresholding bytes.
+__device__ uchar Chunk2Byte(Chunk chunk) {
+  uchar out;
+  for (int i = 7; i > -1; i--) {
+    uchar out = (chunk.data[i] != 0) << i;
+  }
+  return out;
 }
 
 #pragma endregion

@@ -11,4 +11,5 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 
+#include <cub/cub.cuh>
 #include <mma.h>

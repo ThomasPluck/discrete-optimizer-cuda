@@ -51,26 +51,31 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
     : Layer(_input_size, _output_size, _batch_size) {
   std::cout << "Running FcLayer constructor..." << std::endl;
 
+  // Weights and biases
   weights = Host_Matrix(_input_size, _output_size);
-
   biases = _output_size;
+
+  // Weight and bias counters
   weight_counters = _output_size * _input_size;
   bias_counters = _output_size;
+
+  // Weight and bias threshold paramaters
+  weight_threshold = 4;
+  bias_threshold = 4;
 }
 
-void FcLayer::forward() {
-//! Only allow forward if XOR BMMA is not deprecated
+void FcLayer::predict() {
+//! Only allow predict if XOR BMMA is not deprecated
 #if __CUDACC__ < 900
 
   // Launch::allocate_shmem(10000);
-  Launch::calculate_occupancy(FcLayerFwd);
+  Launch::calculate_occupancy(FcLayerPredict);
   Launch::print_params();
-  FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block,
-               Launch::shared_memory_size>>>(
-      input, output, weights, biases, weight_counters, bias_counters,
-      input_blocks, output_blocks, batch_blocks, input_bits, output_bits,
-      batch_bits);
-  SYNC_KERNEL("FcLayerFwd");
+  FcLayerPredict<<<Launch::num_blocks, Launch::threads_per_block,
+                   Launch::shared_memory_size>>>(
+      input, output, weights, biases, input_blocks, output_blocks, batch_blocks,
+      input_bits, output_bits, batch_bits);
+  SYNC_KERNEL("FcLayerPredict");
 
 #else
 
@@ -80,74 +85,14 @@ void FcLayer::forward() {
 #endif
 }
 
-void FcLayer::back() {
-  // get NOT output_labels
-  // get NOT output
+void FcLayer::train() {
 
-  Host_Matrix not_out_label = output_label;
-  Host_Matrix not_out = output;
-
-  Launch::kernel_2d(output.element_dims[0], output.element_dims[1]);
-
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out_label);
-  SYNC_KERNEL("NOT_out_label");
-
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_out);
-  SYNC_KERNEL("NOT_output");
-
-  Host_Matrix fp_error = output;
-  Host_Matrix fn_error = not_out;
-
-  // fp_error replaces output (which it was set to right above) in the call in
-  // order to conform to the LHS/RHS design
-  AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error,
-                                                         not_out_label);
-  SYNC_KERNEL("find_fp_error");
-
-  // see previous comment, but with fn_error and not_out
-  AND<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error,
-                                                         output_label);
-  SYNC_KERNEL("find_fn_error");
-
-//! If card is post-Turing use AND BMMA Tensorcore Operations
-#if __CUDACC__ >= 800
-
-  Host_Matrix input_T = input;
-  Host_Matrix fp_error_T = fp_error;
-  Host_Matrix fn_error_T = fn_error;
-
-  Launch::kernel_2d(input_T.dims[0], input_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(input_T);
-  SYNC_KERNEL("Transpose_input");
-
-  Launch::kernel_2d(fp_error_T.dims[0], fp_error_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(fp_error_T);
-  SYNC_KERNEL("Transpose_fp_error");
-
-  Launch::kernel_2d(fn_error_T.dims[0], fn_error_T.dims[1]);
-  Transpose<<<Launch::num_blocks, Launch::threads_per_block>>>(fn_error_T);
-  SYNC_KERNEL("Transpose_fn_error");
-
-  // NOT input transposed
-  Host_Matrix not_input_T = input_T;
-
-  Launch::kernel_2d(not_input_T.dims[0], not_input_T.dims[1]);
-  NOT<<<Launch::num_blocks, Launch::threads_per_block>>>(not_input_T);
-  SYNC_KERNEL("NOT_input_T");
-
-  Launch::calculate_occupancy(FcLayerBkWeight);
-  FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
-      weights, weight_counters, fp_error_t, fn_error_t, input_t, not_input_t);
-  SYNC_KERNEL("FcLayerBkWeight_CC80");
-
-#else
-
-  Launch::calculate_occupancy(FcLayerBkWeight);
-  FcLayerBkWeight<<<Launch::num_blocks, Launch::threads_per_block>>>(
-      input, weights, weight_counters, fp_error, fn_error);
-  SYNC_KERNEL("FcLayerBkWeight");
-
-#endif
+  Launch::calculate_occupancy(FcLayerTrain);
+  FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(
+      input, output, weights, output_label, input_label, biases, bias_counters,
+      weight_counters, input_blocks, output_blocks, batch_blocks, input_bits,
+      output_bits, batch_bits, weight_threshold, bias_threshold);
+  SYNC_KERNEL("FcLayerTrain");
 }
 
 #pragma endregion
@@ -161,15 +106,16 @@ void FcLayer::back() {
 
 // }
 
-// void CvLayer::forward(){
+// void CvLayer::predict(){
 //     //Launch::calculate_occupancy(CvLayerFwd);
-//     //FcLayerFwd<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
+//     //FcLayerPredict<<<Launch::num_blocks,
+//     Launch::threads_per_block>>>(this);
 //     //SYNC_KERNEL(CvLayerFwd);
 // }
 
-// void CvLayer::back(){
+// void CvLayer::train(){
 //     //Launch::calculate_occupancy(CvLayerBk);
-//     //FcLayerBk<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
+//     //FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(this);
 //     //SYNC_KERNEL(CvLayerBk);
 // }
 

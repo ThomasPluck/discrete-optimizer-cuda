@@ -6,14 +6,14 @@
 #include "standard_includes.h"
 #include "util.cuh"
 
-//--------fully-connected--------
+#pragma region FcLayer
+__global__ static void FcLayerPredict(Device_Matrix input, Device_Matrix output,
+                                      Device_Matrix weights,
+                                      Device_Data<uint16_t> biases,
+                                      int input_blocks, int output_blocks,
+                                      int batch_blocks, int input_bits,
+                                      int output_bits, int batch_bits) {
 
-__global__ static void
-FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
-           Device_Data<uint16_t> biases, Device_Data<uchar> bias_counters,
-           Device_Data<uchar> weight_counters, int input_blocks,
-           int output_blocks, int batch_blocks, int input_bits, int output_bits,
-           int batch_bits) {
   using namespace nvcuda;
   using namespace nvcuda::wmma;
   using namespace nvcuda::wmma::experimental;
@@ -78,245 +78,199 @@ FcLayerFwd(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
   }
 }
 
-#if __CUDACC__ >= 800 //! Window of CUDA architectures that support bmmaBitOpAnd
-
 __global__ static void
-FcLayerBkWeight(Device_Matrix weights, Device_Data<uchar> weight_counters,
-                Device_Matrix fp_error_t, Device_Matrix fn_error_t,
-                Device_Matrix input_t, Device_Matrix not_input_t) {
-  GET_WARPID;
-  GET_LANEID;
+FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
+             Device_Matrix output_label, Device_Matrix input_label,
+             Device_Data<uint16_t> biases, Device_Data<int> bias_counters,
+             Device_Data<uchar> weight_counters, int input_blocks,
+             int output_blocks, int batch_blocks, int input_bits,
+             int output_bits, int batch_bits, uchar weight_threshold,
+             uchar bias_threshold) {
 
   using namespace nvcuda;
   using namespace nvcuda::wmma;
   using namespace nvcuda::wmma::experimental;
   using namespace nvcuda::wmma::experimental::precision;
 
-  extern __shared__ int bmma_result[];
+  GET_LANEID;
+  GET_WARPID;
 
-  // Initialize input
+  // Block cache memory
+  extern __shared__ int Cs[64];
+  // Final int count
+  __device__ int Es[64 * output_blocks] = {0};
 
-  Device_Matrix *I[2] = {&input_t, &not_input_t};
-  Device_Matrix *E[2] = {&fp_error_t, &fn_error_t};
+  // For later use
+  typedef cub::BlockReduce<int, 1024> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  // GWID == Global Warp ID - magic number 32 warps in a block
-  for (int gwid = blockIdx.x * warpSize + warpid;
-       gwid < input_t.num_blocks_height() * fp_error_t.num_blocks_height();
-       gwid += gridDim.x * warpSize) {
-    // Matrix fragments and accumulators
-    fragment<matrix_a, 8, 8, 128, b1, row_major> A_frag;
-    fragment<matrix_b, 8, 8, 128, b1, col_major> B_frag;
-    fragment<accumulator, 8, 8, 128, int> C_frag;
+  // bn short for batch number
+  for (int bn = 0; bn < batch_blocks; bn++) {
 
-    fill_fragment(C_frag, 0);
+    // gwid short for global warp ID
+    for (int gwid = blockIdx.x * 32 + warpid;
+         gwid < input_blocks * output_blocks; gwid += gridDim.x * 32) {
 
-    // GWID --> Warp's Block Coordinates
-    const int by = gwid % fp_error_t.num_blocks_width(); // block column
-    const int bx = gwid / fp_error_t.num_blocks_width(); // block row
+      // Compute block coordinates
+      const int bx = gwid % output_blocks; // which block column
+      const int by = gwid / output_blocks; // which block row
 
-    // A = BMMA_AND(Input^T,FP)
-    // B = BMMA_AND(NOT(Input)^T,FP)
-    // C = BMMA_AND(Input^T,FN)
-    // D = BMMA_AND(NOT(Input)^T,FN)
+      // Matrix fragments and accumulators
+      fragment<matrix_a, 8, 8, 128, b1, row_major> A_frag;
+      fragment<matrix_b, 8, 8, 128, b1, col_major> B_frag;
+      fragment<accumulator, 8, 8, 128, int> C_frag;
 
-    // A &= NOT(Weights)
-    // B &= Weights
-    // C &= Weights
-    // D &= NOT(Weights)
-
-    // Blame = A+B+C+D
-
-    for (int j = 0; j < 4; j++) {
-      for (int i = 0; i < input_t.num_blocks_width(); i++) {
-        // Always load matrix fragments and accumulate
-        load_matrix_sync(A_frag, &(*I[j % 2])(i, by, 0, 0), 128);
-        load_matrix_sync(B_frag, &(*E[j / 2])(i, bx, 0, 0), 128);
-        bmma_sync(C_frag, A_frag, B_frag, C_frag, bmmaBitOpAND);
-      }
-      // TODO: double check that weight orientation is correct.
-      //  Store matrix in shared memory
-      store_matrix_sync(&bmma_result[warpid * 64], C_frag, 8, mem_row_major);
-
-      Chunk weight_chunk = weights.get_chunk(bx, by);
-
-      // ( j % 3 == 0 ? weight_chunk = ~weight_chunk)
-      if (j % 3 == 0) {
-        weight_chunk.NOT();
-      }
-
-      // Move bit to appropriate test site
-      uin32 test_val = 0x80000000 >> laneid;
-
-      // Check for 1 at test_val location in both half matrices and return full
-      // or empty uin32s accordingly
-      uin32 v0 =
-          (test_val & weight_chunk.halves[0] > 0 ? 0xFFFFFFFF : 0x00000000);
-      uin32 v1 =
-          (test_val & weight_chunk.halves[1] > 0 ? 0xFFFFFFFF : 0x00000000);
-
-      // AND appropriately with found values to leave behind appropriate
-      // comparisons
-      bmma_result[warpid * 64 + laneid] &= v0;
-      bmma_result[warpid * 64 + laneid + 32] &= v1;
-
-      // Flip weights if appropriate
-      weight_counters[warpid * 64 + laneid] +=
-          bmma_result[warpid * 64 + laneid];
-      weight_counters[warpid * 64 + laneid] *=
-          -1 * ((weight_counters[warpid * 64 + laneid] > WEIGHT_THRESHOLD) - 1);
-
-      weight_counters[warpid * 64 + laneid + 32] +=
-          bmma_result[warpid * 64 + laneid + 32];
-      weight_counters[warpid * 64 + laneid + 32] *=
-          -1 *
-          ((weight_counters[warpid * 64 + laneid + 32] > WEIGHT_THRESHOLD) - 1);
-
-      __syncthreads();
-
-      // Reinitialize C
+      // Zero-out accumulator fragment
       fill_fragment(C_frag, 0);
-    }
 
-    // TODO: Iterate over properly to ensure all weight counters are
-    // decremented. Synchronized counter decrement - determined by user's batch
-    // size.
-    weight_counters[warpid * 64 + laneid] -= 1;
-    weight_counters[warpid * 64 + laneid + 32] -= 1;
-  }
-}
+      // Keep track of number of thread blocks needed in terms of block threads
+      // and warps
+      int num_input_thread_blocks = STEP32(input_blocks);
+      int num_input_warps = STEP32(input_blocks) * 32;
 
-#else
+      // Warp to block mapping
+      int bi = gwid % num_input_warps; // Which input block
+      int bw = gwid / num_input_warps; // Which weight block
 
-// BMMA-free backpropagation
-__global__ static void FcLayerBkWeight(Device_Matrix input,
-                                       Device_Matrix weights,
-                                       Device_Data<uchar> weight_counters,
-                                       Device_Matrix fp_error,
-                                       Device_Matrix fn_error) {
-  using namespace nvcuda;
+      int Ds[64];
 
-  GET_WARPID;
-  GET_LANEID;
+      if (bi < input_blocks) {
 
-  // Which sample did this error occur in?
-  __shared__ int *error_cols;
-  __shared__ uint *error_rows;
+        // One 8*128 bit matrix multiply-accumulate per warp
+        load_matrix_sync(A_frag, &input(bi, bn, 0, 0), 128);
+        load_matrix_sync(B_frag, &weights(bi, bw, 0, 0), 128);
+        bmma_sync(C_frag, A_frag, B_frag, C_frag);
 
-  int MAX_ERRORS = (fp_error.bit_width() * fp_error.bit_height()) / warpSize;
+        __syncthreads();
 
-  // GWID == Global Warp ID
-  for (int gwid = blockIdx.x * warpSize + warpid; gwid < MAX_ERRORS / 8;
-       gwid += gridDim.x * warpSize) {
-    // Allocate each warp a 32-byte row slice
-    int bx = gwid % (BLOCK_WIDTH * fp_error.num_blocks_width() / warpSize);
-    int by = gwid / (BLOCK_WIDTH * fp_error.num_blocks_width() / warpSize);
-
-    // Retrieve a byte per thread
-    uchar fp_error_byte = fp_error(bx + laneid, by);
-    uchar fn_error_byte = fn_error(bx + laneid, by);
-
-// Check each bit to see if they have caused an error
-#pragma unroll
-    for (uchar i = 0x80, j = 0; i > 0 && j < 8; i >> 1, j++) {
-      // FP and FN errors are mutually exclusive - so this works
-
-      // Note convention: 0 = no error found, column indexing begins at 1 if FP
-      // or -1 if FN
-      error_rows[laneid * CHAR_BIT + j] =
-          (i & fp_error_byte > 0 ? bx + laneid + j + 1 : 0);
-      error_rows[laneid * CHAR_BIT + j] =
-          (i & fn_error_byte > 0 ? -(bx + laneid + j + 1) : 0);
-      // Same thing, 0 = no error found, column indexing begins at 1
-      error_cols[laneid * CHAR_BIT + j] =
-          ((i & fp_error_byte > 0) || (i & fn_error_byte > 0) ? by : 0);
-    }
-
-    __syncthreads();
-
-// Iterate over all members of shared memory
-#pragma unroll
-    for (int i = 0; i < warpSize * CHAR_BIT; i++) {
-      // If no error, skip
-      if (error_rows[i] == 0 || error_cols[i] == 0) {
-      } else {
-        // Take bitwise XOR of input and offending weight
-        uchar *blame = rowXOR(input(error_rows[i] - 1),
-                              weights(std::abs(error_cols[i]) - 1));
-
-// TODO: Find a way to continue iterating until entire blame array is consumed.
-#pragma unroll
-        for (int j = 0; j < CHAR_BIT; j++) {
-          // Determine if weight in question is to blame for error
-          bool sign = (error_cols[i] < 0);
-          uchar val = ((blame[laneid] & 0x80 >> j) > 1 ? 1 ^ sign : 0 ^ sign);
-
-          // Increment weight counter if error is found!
-          weight_counters[laneid + j + weights.bit_width() * error_rows[i]] +=
-              val;
-        }
+        store_matrix_sync(Ds, C_frag, 8, mem_row_major);
       }
 
       __syncthreads();
-    }
-  }
 
-  // Synchronized counter decrement - determined by user's batch size.
-  weight_counters[warpid * 64 + laneid] -= 1;
-  weight_counters[warpid * 64 + laneid + 32] -= 1;
-}
+// Sum computations into global memory
+#pragma unroll
+      for (int i = 0; i < 64; i++) {
+        Cs[i] = BlockReduce(temp_storage).Sum(Ds[i]);
+        Cs[i] /= 32;
+        Es[i + (blockIdx.x / num_input_thread_blocks) * 64] += Cs[i];
+        Cs[i] = 0;
+      }
 
-#endif
+      __syncthreads();
+      // gtid = Global thread ID
+      int gtid = laneid + gwid * 32;
+      if (gtid < 64 * output_blocks) {
+        // Load activations into threads
+        int activation = Es[gtid];
 
-__global__ static void FcLayerBkBias(Device_Matrix fp_error_t,
-                                     Device_Matrix fn_error_t,
-                                     Device_Data<uchar> bias_counters,
-                                     Device_Data<uchar> biases) {
-  GET_WARPID;
-  GET_LANEID;
+        // And reuse this piece of code with a few tweaks...
 
-  for (int gwid = blockIdx.x * 32 + warpid;
-       gwid < fp_error_t.num_blocks_width() * fp_error_t.num_blocks_height();
-       gwid += gridDim.x * 32) {
-    const int by = gwid % fp_error_t.num_blocks_width(); // block column
-    const int bx = gwid / fp_error_t.num_blocks_width(); // block row
+        // We now map threads to upper 4-by-8 half of the output 8-by-8 in a
+        // row-major format
+        const int gy = laneid % 8;
+        const int gx = laneid / 8;
 
-    // Get appropriate chunk
-    uchar bias_incr[8];
-    uchar bias_decr[8];
+        // We check if an output int should exist first in the upper half
+        bool v0 = ((by * 8 + gy) < output_bits) && ((bx * 8 + gx) < batch_bits);
 
-    ChunkPOPC(fp_error_t.get_chunk(bx, by), bias_incr);
-    ChunkPOPC(fn_error_t.get_chunk(bx, by), bias_decr);
+        // And then we check again in the lower half of the 8-by-8
+        bool v1 =
+            ((by * 8 + gy) < output_bits) && ((bx * 8 + gx + 4) < batch_bits);
 
-    const int gy = laneid % 8;
+        // Is the int greater than the corresponding output bias?
+        v0 &= (Cs[warpid * 64 + laneid] >= biases[by * 8 + gy]);
 
-    // Only work on bottom 8 lanes per warp
-    // TODO: Optimize loop to use warps more densely
-    if (laneid < 8) {
-      // If bias threshold passed in either direction
-      if (abs(bias_counters[by * 8 + gy] + bias_incr[gy] - bias_decr[gy]) >
-          BIAS_THRESHOLD) {
-        // If bias counters are positive... reset counter and increment bias
-        if (bias_counters[by * 8 + gy] > 0) {
-          bias_counters[by * 8 + gy] = 0;
-          biases[by * 8 + gy] += 1;
+        // Check again for the lower half of the 8-by-8 int array
+        v1 &= (Cs[warpid * 64 + 32 + laneid] >= biases[by * 8 + gy]);
 
-          // If biases counters are negative... reset counter and decrement bias
-        } else {
-          bias_counters[by * 8 + gy] = 0;
-          biases[by * 8 + gy] -= 1;
+        // Some elaborate bit hack to pack our results into 2 "half chunks" of 4
+        // bytes
+        union {
+          uin32 data;
+          uin8 elements[4];
+        } p0, p1;
+        p0.data = __brev(__ballot_sync(0xFFFFFFFF, v0));
+        p1.data = __brev(__ballot_sync(0xFFFFFFFF, v1));
+        __syncthreads();
+
+        // Here we deviate slightly from prediction mode and begin to compute
+        // error statistics using the output_label matrix.
+        Chunk truth = output_label.get_chunk(by, bx);
+        Chunk out = Chunk(p0.data, p1.data);
+
+        // generate FP/FN chunks
+        Chunk FP = ChunkAND(ChunkNOT(truth), out);
+        Chunk FN = ChunkAND(truth, ChunkNOT(out));
+
+        // We are now syncing across warps and should treat our data accordingly
+        // each warp at this stage is working on 8 columns of weight matrix
+
+        // Iterate over byte rows in Chunk
+        for (int i = 0; i < 8; i++) {
+
+          // Iterate over length of weights bit matrix
+          for (int j = 0; j < weights.bit_height(); j++) {
+
+            Chunk bad_fp_weights = Byte2Chunk(FP.data[i] & weights(bx, j));
+            Chunk bad_fn_weights = Byte2Chunk(FN.data[i] & weights(bx, j));
+
+            // Iterate through columns of row of bit matrix
+            for (int k = 0; k < 8; k++) {
+
+              // If its a bad weight - add to its counter
+              if ((bool)bad_fp_weights.data[k] || (bool)bad_fn_weights[k]) {
+
+                weight_counters[8 * gwid + j * output_bits + k] += 1;
+                bias_counters[8 * gwid + k] +=
+                    bad_fp_weights.data[k] - bad_fn_weights[k];
+
+                if (weight_counters[8 * gwid + j * output_bits + k] %
+                        weight_threshold ==
+                    0) {
+                  // Reset relevant counter, flip relevant weight
+                  weight_counters[8 * gwid + j * output_bits + k] = 0;
+                  weights(bx, j) ^= 0x80 >> k;
+
+                } else if (bias_counters[8 * gwid + k] % bias_threshold == 0) {
+                  // Increment or decrement depending on signal
+                  if (bias_counters[8 * gwid + k] > 0) {
+                    biases[8 * gwid + k] += 1;
+                  } else {
+                    biases[8 * gwid + k] -= 1;
+                  }
+
+                  // Reset relevant bias counter
+                  bias_counters[8 * gwid + k] = 0;
+                }
+              }
+            }
+          }
         }
 
-        // Else continue building counters
-      } else {
-        bias_counters[by * 8 + gy] += bias_incr[gy];
-        bias_counters[by * 8 + gy] += bias_decr[gy];
+        // Iterate over length of weights bit matrix
+        for (int j = 0; j < weights.bit_height(); j++) {
+          // Iterate through columns of row of bit matrix
+          for (int k = 0; k < 8; k++) {
+            // Decrement all weight counters
+            weight_counters[8 * gwid + j * output_bits + k] -= 1;
+            // Move all bias counters closer to zero
+            bias_counters[8 * gwid + k] +=
+                (bias_counters[8 * gwid + k] > 0 ? -1 : 1);
+          }
+        }
+        // Use the simple matrix function to set the half chunks
+        output.set_half_chunks(by, bx, p0.elements, p1.elements);
       }
     }
+
+    __global__ int Es[64 * output_blocks] = {0};
   }
-  __syncthreads();
 }
 
-//---------convolution--------
+#pragma endregion
+
+#pragma region CvLayer
 
 __global__ static void CvLayerBk(Device_Matrix input) {
   using namespace nvcuda;
@@ -325,3 +279,5 @@ __global__ static void CvLayerBk(Device_Matrix input) {
   GET_WARPID;
   GET_LANEID;
 }
+
+#pragma endregion CvLayer
