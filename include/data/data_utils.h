@@ -4,7 +4,7 @@
 
 #include "structs.h"
 
-#define BATCH 32
+#define MNIST_BATCH 10000
 
 #define MNIST_IMAGE_HEIGHT 28
 #define MNIST_IMAGE_WIDTH 28
@@ -13,7 +13,7 @@
 #define MNIST_DATA_THRESHOLD 50
 #define MNIST_NUM_CLASSES 10
 
-Host_Matrix PackHostMatrix(uchar* DataToPack, int bit_width, int bit_height,
+Host_Matrix PackHostMatrix(uchar *DataToPack, int bit_width, int bit_height,
                            int byte_threshold) {
   Host_Matrix output(bit_width, bit_height);
 

@@ -53,6 +53,7 @@ struct FcLayer : public Layer {
   Host_Data<uint16_t> biases;
   Host_Data<uchar> weight_counters;
   Host_Data<int> bias_counters;
+  Host_Data<int> layer_cache;
 
   // Weight and bias threshold paramaters
   uchar weight_threshold;

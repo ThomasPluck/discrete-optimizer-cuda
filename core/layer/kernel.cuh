@@ -82,10 +82,10 @@ __global__ static void
 FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
              Device_Matrix output_label, Device_Matrix input_label,
              Device_Data<uint16_t> biases, Device_Data<int> bias_counters,
-             Device_Data<uchar> weight_counters, int input_blocks,
-             int output_blocks, int batch_blocks, int input_bits,
-             int output_bits, int batch_bits, uchar weight_threshold,
-             uchar bias_threshold) {
+             Device_Data<int> layer_cache, Device_Data<uchar> weight_counters,
+             int input_blocks, int output_blocks, int batch_blocks,
+             int input_bits, int output_bits, int batch_bits,
+             uchar weight_threshold, uchar bias_threshold) {
 
   using namespace nvcuda;
   using namespace nvcuda::wmma;
@@ -97,8 +97,6 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
 
   // Block cache memory
   extern __shared__ int Cs[64];
-  // Final int count
-  __device__ int Es[64 * output_blocks] = {0};
 
   // For later use
   typedef cub::BlockReduce<int, 1024> BlockReduce;
@@ -153,7 +151,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       for (int i = 0; i < 64; i++) {
         Cs[i] = BlockReduce(temp_storage).Sum(Ds[i]);
         Cs[i] /= 32;
-        Es[i + (blockIdx.x / num_input_thread_blocks) * 64] += Cs[i];
+        layer_cache[i + (blockIdx.x / num_input_thread_blocks) * 64] += Cs[i];
         Cs[i] = 0;
       }
 
@@ -162,7 +160,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       int gtid = laneid + gwid * 32;
       if (gtid < 64 * output_blocks) {
         // Load activations into threads
-        int activation = Es[gtid];
+        int activation = layer_cache[gtid];
 
         // And reuse this piece of code with a few tweaks...
 
@@ -264,7 +262,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       }
     }
 
-    __global__ int Es[64 * output_blocks] = {0};
+    layer_cache[64 * output_blocks] = {0};
   }
 }
 

@@ -59,6 +59,9 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
   weight_counters = _output_size * _input_size;
   bias_counters = _output_size;
 
+  // Instantiate layer cache
+  layer_cache = 64 * output_blocks;
+
   // Weight and bias threshold paramaters
   weight_threshold = 4;
   bias_threshold = 4;
@@ -90,8 +93,8 @@ void FcLayer::train() {
   Launch::calculate_occupancy(FcLayerTrain);
   FcLayerTrain<<<Launch::num_blocks, Launch::threads_per_block>>>(
       input, output, weights, output_label, input_label, biases, bias_counters,
-      weight_counters, input_blocks, output_blocks, batch_blocks, input_bits,
-      output_bits, batch_bits, weight_threshold, bias_threshold);
+      layer_cache, weight_counters, input_blocks, output_blocks, batch_blocks,
+      input_bits, output_bits, batch_bits, weight_threshold, bias_threshold);
   SYNC_KERNEL("FcLayerTrain");
 }
 
