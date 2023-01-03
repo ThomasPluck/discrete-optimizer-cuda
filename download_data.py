@@ -60,6 +60,7 @@ def unzip(zipped_path, quiet):
             unzipped_file.write(zipped_file.read())
             if not quiet:
                 print("Unzipped {} ...".format(zipped_path))
+    os.remove(zipped_path)
 
 
 def main():

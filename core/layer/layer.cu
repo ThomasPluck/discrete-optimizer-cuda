@@ -68,7 +68,7 @@ FcLayer::FcLayer(int _input_size, int _output_size, int _batch_size)
 }
 
 void FcLayer::predict() {
-//! Only allow predict if XOR BMMA is not deprecated
+// * Only allow predict if XOR BMMA is not deprecated
 #if __CUDACC__ < 900
 
   // Launch::allocate_shmem(10000);

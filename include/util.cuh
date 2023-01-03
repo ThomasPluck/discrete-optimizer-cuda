@@ -37,9 +37,9 @@ __global__ static void Transpose(Device_Matrix input, Device_Matrix output) {
   }
 }
 
-//! NOTE: This NOT's to the most appropriate BYTE additional care must be taken
-//! when combining this with other bit arithmetic as it may lead to undefined
-//! behaviour - eg. XOR(NOT(X),X) will lead to 1's in undefined bit space!!!
+// * NOTE: This NOT's to the most appropriate BYTE additional care must be taken
+// * when combining this with other bit arithmetic as it may lead to undefined
+// * behaviour - eg. XOR(NOT(X),X) will lead to 1's in undefined bit space!!!
 __global__ static void NOT(Device_Matrix input) {
   GET_DIMS(x, y);
   CHECK_BOUNDS(input.element_dims[0], input.element_dims[1]);

@@ -96,7 +96,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
   GET_WARPID;
 
   extern __shared__ int Cs[];
-  extern __shared__ uchar Es[];
+  extern __shared__ Chunk Es[];
 
   // brow = batch block row
   for (int brow = 0; brow < batch_blocks; brow ++){
@@ -105,6 +105,8 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
     for (int gwid = blockIdx.x * 32 + warpid;
           gwid < PAD32(input_blocks) * output_blocks;
           gwid += gridDim.x * 32) {
+
+      // * Inference step begins here
 
       // Matrix fragments and accumulators
       fragment<matrix_a, 8, 8, 128, b1, row_major> A_frag;
@@ -130,9 +132,10 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
 
       // Each thread will only require two ints
       int Ds[2] = {0};
-      // Thread-block sum-reduce
-      //! Final summation will be stored in warp 0's Ds[2]
-      for (int i = 0; i < log2(32) - 1; i++) {
+      // * Thread-block sum-reduce
+
+      // Final summation will be stored in warp 0's Ds[2]
+      for (int i = 0; i < 5 - 1; i++) {
 
         if (warpid % (2 << i) == 0) {
 
@@ -150,10 +153,11 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
         layer_cache[64 * (blockIdx.x/STEP32(input_blocks)) + laneid + 32] += Ds[1];
       }
 
-      // Allocate each thread a unique int and its accompanying bias
-      Ds[0] = layer_cache[32 * gwid + laneid];
-      Ds[1] = 0;
+      // Ensure that bit in question is within bounds
       if (8 * (gwid / 2) + (laneid % 8) < output_bits) {
+        // Ds[0] is the final summed output split across threads
+        Ds[0] = layer_cache[32 * gwid + laneid];
+        // Ds[1] is appropriate bias corresponding to summed output
         Ds[1] = biases[8 * (gwid / 2) + (laneid % 8)];
       }
       
@@ -161,13 +165,89 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       Ds[0] = Ds[0] < Ds[1];
 
       // Efficiently convert to binarized output
-      uchar p0[4];
-      p0[0] = __brev(__ballot_sync(0xFFFFFFFF, Ds[0]));
+      uchar p0[4], fp[4], fn[4];
+      uin32 sync = __brev(__ballot_sync(0xFFFFFFFF, Ds[0]));
+      memcpy(p0, &sync, sizeof(uin32));
       __syncthreads();
 
-      // Use the simple matrix function to set the half chunks
-      output.set_half_chunks(by, bx, p0, p1);
+      // * Training portion begins here
 
+      // Write chunks to shared memory
+      Es[gwid/2] = output_label.get_chunk(gwid / 2, brow * 8);
+      // Create FP/FN vectors at warp-level
+      for (int i = 0; i < 4; i++) {
+        fp[i] = p0[i] & !Es[gwid/2].data[i+4*(gwid%2)];
+        fn[i] = !p0[i] & Es[gwid/2].data[i+4*(gwid%2)];
+      }
+      
+      // * Each warp now has 32 FP/FN bits, or 8 error bytes per warp.
+
+      // global thread ID
+      int gtid = laneid % 8 + 8 * (gwid / 2);
+      // ! Bit level addressing must be correct to avoid indexing overshoot
+      // Iterate along weight columns
+      for (int i = 0; i < output_blocks * 16; i++) {
+
+        for (int j = 0; j < 2; j++) {
+          // For maximum occupancy, we work through all 4 error bytes with 8 weight column bytes
+          // its important to note that each error byte corresponds exactly to 8 weight columns.
+          uchar cand = weights(i,gtid);
+          
+          // Iterate across each bit.
+          if (j==0) {
+            for (int k = 0; k < 8; k++){
+              cand &= ((fp[laneid / 8] & (128 >> k)) ? 0x01 : 0x00);
+              int loc = k + 8 * (i + gtid);
+              if (loc < output_bits * input_bits) {
+                weight_counters[loc] += cand;
+                bias_counters[loc % output_bits] -= cand;
+              }
+            }
+          // Repeated for the fn segment
+          } else {
+            for (int k = 0; k < 8; k++){
+              cand &= ((fn[laneid / 8] & (128 >> k)) ? 0x01 : 0x00);
+              int loc = k + 8 * (i + gtid);
+              if (loc < output_bits * input_bits) {
+                weight_counters[loc] += cand;
+                bias_counters[loc % output_bits] += cand;
+              }
+            }
+          }
+        }
+      }
+
+      // * Begin flipping weights and incrementing/decrementing biases
+
+      // global thread ID
+      gtid = laneid + 32 * gwid;
+
+      // Ensure that bit in question is within bounds
+      if (gtid < output_bits * input_bits) {
+        Ds[0] = weight_counters[gtid];
+
+        // Flip weight if over threshold
+        if (Ds[0] > WEIGHT_THRESHOLD) {
+          weights(gtid % (8 * output_blocks * 16),
+          gtid / (8 * output_blocks * 16)) 
+          ^= (Ds[0] > WEIGHT_THRESHOLD)
+          << (7 - gtid % 8);
+          weight_counters[gtid] = 0;
+        }
+      }
+
+      if (gtid < output_bits) {
+        Ds[0] = bias_counters[gtid];
+
+        // Increment/decrement biases if over absolute threshold
+        if (Ds[0] > BIAS_THRESHOLD) {
+          biases[gtid] += 1;
+          bias_counters[gtid] = 0;
+        } else if (Ds[0] < -BIAS_THRESHOLD) {
+          biases[gtid] -= 1;
+          bias_counters[gtid] = 0;
+        }
+      }
     }
   }
 }
