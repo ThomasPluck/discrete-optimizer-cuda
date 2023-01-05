@@ -46,3 +46,38 @@ Host_Matrix PackHostMatrix(uchar *DataToPack, int bit_width, int bit_height,
 
   return output;
 }
+
+// Method to unpack host matrix data structure to ordinary boolean array.
+bool * UnpackHostMatrix(Host_Matrix DataToUnpack) {
+
+  // Output bool array
+  bool output_array[DataToUnpack.bit_height() * DataToUnpack.bit_width()];
+  bool temp[8];
+
+  // Iterate across all Host_Matrix bytes
+  for (int i = 0; i < 16 * DataToUnpack.block_dims[0]; i++) {
+    for (int j = 0; j < 8 * DataToUnpack.block_dims[1]; j++) {
+
+      // If i is a byte known to contain data according to bit width
+      if (i < STEP8(DataToUnpack.bit_width())) {
+
+        for (int k = 0; k < 8; k++) {
+          temp[k] = (DataToUnpack(i,j) & (128 >> k)) > 0 ? true : false;
+        }
+
+        // Iterate across all bits in a byte
+        for (int k = 0; k < 8; k++) {
+          
+          // If selected bit is within bit range.
+          if (k + i * 8 < DataToUnpack.bit_width()) {
+            output_array[j*DataToUnpack.bit_width()+i] = temp[k];
+          }
+
+        }
+      }
+    }
+  }
+
+  return output_array;
+
+}

@@ -68,6 +68,8 @@ int main() {
 
     // Train network
     layer1.train();
+
+    Host_Matrix out_weights = layer1.weights;
   }
 
   // ================= Test Network =================

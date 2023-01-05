@@ -130,12 +130,13 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       // Matmul output is an 8-by-8 int array per warp into shared memory
       store_matrix_sync(&Cs[warpid * 64], C_frag, 8, mem_row_major);
 
-      // Each thread will only require two ints
-      int Ds[2] = {0};
       // * Thread-block sum-reduce
 
+      // Each thread will only require two ints
+      int Ds[2] = {0};
+
       // Final summation will be stored in warp 0's Ds[2]
-      for (int i = 0; i < 5 - 1; i++) {
+      for (int i = 0; i < 4; i++) {
 
         if (warpid % (2 << i) == 0) {
 
@@ -170,10 +171,12 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
       memcpy(p0, &sync, sizeof(uin32));
       __syncthreads();
 
+      // TODO: Implement binarized output
+
       // * Training portion begins here
 
       // Write chunks to shared memory
-      Es[gwid/2] = output_label.get_chunk(gwid / 2, brow * 8);
+      Es[warpid/2] = output_label.get_chunk(gwid / 2, brow * 8);
       // Create FP/FN vectors at warp-level
       for (int i = 0; i < 4; i++) {
         fp[i] = p0[i] & !Es[gwid/2].data[i+4*(gwid%2)];
@@ -196,7 +199,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
           // Iterate across each bit.
           if (j==0) {
             for (int k = 0; k < 8; k++){
-              cand &= ((fp[laneid / 8] & (128 >> k)) ? 0x01 : 0x00);
+              cand &= (fp[laneid / 8] & (128 >> k)) ? 0xFF : 0x00;
               int loc = k + 8 * (i + gtid);
               if (loc < output_bits * input_bits) {
                 weight_counters[loc] += cand;
@@ -206,7 +209,7 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
           // Repeated for the fn segment
           } else {
             for (int k = 0; k < 8; k++){
-              cand &= ((fn[laneid / 8] & (128 >> k)) ? 0x01 : 0x00);
+              cand &= (fn[laneid / 8] & (128 >> k)) ? 0xFF : 0x00;
               int loc = k + 8 * (i + gtid);
               if (loc < output_bits * input_bits) {
                 weight_counters[loc] += cand;
@@ -234,6 +237,9 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
           << (7 - gtid % 8);
           weight_counters[gtid] = 0;
         }
+
+        // Decrement all weight blame counters
+        weight_counters[gtid] -= 1;
       }
 
       if (gtid < output_bits) {
@@ -247,7 +253,16 @@ FcLayerTrain(Device_Matrix input, Device_Matrix output, Device_Matrix weights,
           biases[gtid] -= 1;
           bias_counters[gtid] = 0;
         }
+
+        // Increment/decrement counters towards 0.
+        int x = bias_counters[gtid];
+        bias_counters[gtid] = ((x > 0) - (x < 0)) 
+        * (((x > 0) - (x < 0)) 
+        * x - 1);
       }
+
+      //TODO: Generate next layer's labels for training.
+
     }
   }
 }
